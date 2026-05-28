@@ -25,8 +25,8 @@ const ZONE_KEYS = Object.keys(ZONE_DEFS);
 const SAVE_INTERVAL = 60000;
 const MONSTER_RESPAWN = 15000;
 const TICK_MS = 1000 / 20;
-const PROJECTILE_SPEED = 5;
-const ATTACK_COOLDOWN = 800;
+const PROJECTILE_SPEED = 3;
+const ATTACK_COOLDOWN = 1500;
 const MAX_GROUND_ITEMS = 50;
 
 const gameState = {
@@ -154,40 +154,47 @@ function distSq(x1, y1, x2, y2) {
 }
 
 function monsterAI(zone, monsters, players, now) {
-  const playersInZone = [];
+  let pCount = 0;
   for (let i = 0; i < players.length; i++) {
-    if (players[i].zone === zone && players[i].alive) playersInZone.push(players[i]);
+    if (players[i].zone === zone && players[i].alive) { players[pCount++] = players[i]; }
   }
-  if (playersInZone.length === 0) return;
+  if (pCount === 0) return;
 
+  const atkCount = {};
   for (let mi = 0; mi < monsters.length; mi++) {
     const m = monsters[mi];
     if (!m.alive) continue;
 
-    let closest = null;
-    let minDistSq = Infinity;
-    for (let pi = 0; pi < playersInZone.length; pi++) {
-      const dsq = distSq(m.x, m.y, playersInZone[pi].x, playersInZone[pi].y);
-      if (dsq < minDistSq) { minDistSq = dsq; closest = playersInZone[pi]; }
+    let best = 0, bestDsq = 1e9;
+    for (let pi = 0; pi < pCount; pi++) {
+      const dsq = distSq(m.x, m.y, players[pi].x, players[pi].y);
+      if (dsq < bestDsq) { bestDsq = dsq; best = pi; }
     }
 
-    if (!closest || minDistSq > m.aggro * m.aggro) {
-      m.moveTimer -= TICK_MS;
-      if (m.moveTimer <= 0) {
-        m.moveDir += (Math.random() - 0.5) * 2;
-        m.moveTimer = 1000 + Math.random() * 2000 | 0;
+    const closest = players[best];
+    if (!closest || bestDsq > m.aggro * m.aggro) {
+      const wander = m._wander !== undefined;
+      if (!wander) {
+        m._wander = Math.random() * 6.28;
+        m._wanderT = 1000 + (Math.random() * 2000 | 0);
       }
-      m.x += Math.cos(m.moveDir) * m.speed * 0.006;
-      m.y += Math.sin(m.moveDir) * m.speed * 0.006;
+      m._wanderT -= TICK_MS;
+      if (m._wanderT <= 0) {
+        m._wander += (Math.random() - 0.5) * 2;
+        m._wanderT = 1000 + (Math.random() * 2000 | 0);
+      }
+      const spd = m.speed * 0.006;
+      m.x += Math.cos(m._wander) * spd;
+      m.y += Math.sin(m._wander) * spd;
       if (m.y < TILE_SIZE || m.y >= (MAP_ROWS - 1) * TILE_SIZE || m.x < TILE_SIZE || m.x >= (MAP_COLS - 1) * TILE_SIZE) {
-        m.moveDir += Math.PI;
+        m._wander += Math.PI;
       }
       m.x = m.x < TILE_SIZE ? TILE_SIZE : m.x > (MAP_COLS - 1) * TILE_SIZE ? (MAP_COLS - 1) * TILE_SIZE : m.x;
       m.y = m.y < TILE_SIZE ? TILE_SIZE : m.y > (MAP_ROWS - 1) * TILE_SIZE ? (MAP_ROWS - 1) * TILE_SIZE : m.y;
       continue;
     }
 
-    const dist = Math.sqrt(minDistSq);
+    const dist = Math.sqrt(bestDsq);
     m.target = closest.id;
     if (dist > 24) {
       const dx = (closest.x - m.x) / dist;
@@ -195,6 +202,10 @@ function monsterAI(zone, monsters, players, now) {
       m.x += dx * m.speed * 0.018;
       m.y += dy * m.speed * 0.018;
     }
+
+    const pid = closest.id;
+    atkCount[pid] = (atkCount[pid] || 0) + 1;
+    if (atkCount[pid] > 3 && dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) continue;
     if (dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) {
       m.lastAttack = now;
       const hit = m.atk - closest.def > 0 ? m.atk - closest.def : 1;
@@ -202,8 +213,8 @@ function monsterAI(zone, monsters, players, now) {
         addProjectile(-m.id, zone, 'magic_bolt', m.x, m.y, closest.x, closest.y);
       } else {
         closest.hp -= hit;
-        io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'player', ti: closest.id, a: hit, x: closest.x, y: closest.y });
-        if (closest.hp <= 0) { closest.hp = 0; closest.alive = false; io.to('zone_' + zone).emit('player_died', { id: closest.id }); }
+        io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'player', ti: pid, a: hit, x: closest.x, y: closest.y });
+        if (closest.hp <= 0) { closest.hp = 0; closest.alive = false; io.to('zone_' + zone).emit('player_died', { id: pid }); }
       }
     }
   }

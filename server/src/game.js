@@ -51,19 +51,19 @@ const ZONE_DEFS = {
 };
 
 const MONSTERS = {
-  slime: { name: 'Slime', desc: 'A bouncy blob of harmless ooze.', hp: 20, atk: 3, def: 1, xp: 10, speed: 30, aggro: 100, color: 0x44cc44 },
-  rabbit: { name: 'Rabbit', desc: 'A feisty magical rabbit with a mean kick.', hp: 15, atk: 4, def: 0, xp: 12, speed: 50, aggro: 80, color: 0xcc8844 },
-  sprite: { name: 'Sprite', desc: 'A mischievous light spirit that shoots magic.', hp: 12, atk: 6, def: 0, xp: 15, speed: 40, aggro: 120, color: 0x88ddff, ranged: true },
-  wolf: { name: 'Wolf', desc: 'A pack hunter with sharp instincts.', hp: 35, atk: 8, def: 2, xp: 20, speed: 55, aggro: 160, color: 0x886644 },
-  treant: { name: 'Treant', desc: 'An ancient awakened tree. Slow but tough.', hp: 60, atk: 6, def: 5, xp: 25, speed: 20, aggro: 100, color: 0x44aa22 },
-  spider: { name: 'Spider', desc: 'A venomous cave spinner.', hp: 25, atk: 10, def: 1, xp: 22, speed: 45, aggro: 130, color: 0x884422, poison: 3 },
-  bat: { name: 'Bat', desc: 'A cave bat disturbed by your presence.', hp: 18, atk: 5, def: 0, xp: 18, speed: 60, aggro: 90, color: 0x664466 },
-  skeleton: { name: 'Skeleton', desc: 'Animated bones of a fallen mage.', hp: 40, atk: 10, def: 4, xp: 28, speed: 35, aggro: 140, color: 0xcccccc },
-  crystal: { name: 'Crystal', desc: 'A floating crystal that fires energy beams.', hp: 30, atk: 14, def: 3, xp: 30, speed: 25, aggro: 150, color: 0xaa66ff, ranged: true },
-  golem: { name: 'Golem', desc: 'A guardian made of stone and rage.', hp: 80, atk: 12, def: 10, xp: 40, speed: 20, aggro: 120, color: 0x888866 },
-  phantom: { name: 'Phantom', desc: 'A ghostly apparition that phases through reality.', hp: 35, atk: 16, def: 2, xp: 45, speed: 50, aggro: 180, color: 0xccccff, teleport: true },
-  wraith: { name: 'Wraith', desc: 'A soul-draining undead horror.', hp: 45, atk: 14, def: 3, xp: 42, speed: 40, aggro: 160, color: 0x664488, lifedrain: 5 },
-  boss: { name: 'Aether Lord', desc: 'THE FINAL BOSS. A fallen archmage corrupted by void energy.', hp: 300, atk: 25, def: 8, xp: 200, speed: 30, aggro: 250, color: 0xffcc00, boss: true, ranged: true, teleport: true },
+  slime: { name: 'Slime', desc: 'A bouncy blob of harmless ooze.', hp: 20, atk: 2, def: 1, xp: 10, speed: 25, aggro: 80, color: 0x44cc44 },
+  rabbit: { name: 'Rabbit', desc: 'A feisty magical rabbit.', hp: 15, atk: 3, def: 0, xp: 12, speed: 40, aggro: 60, color: 0xcc8844 },
+  sprite: { name: 'Sprite', desc: 'A mischievous light spirit.', hp: 12, atk: 4, def: 0, xp: 15, speed: 35, aggro: 100, color: 0x88ddff, ranged: true },
+  wolf: { name: 'Wolf', desc: 'A pack hunter.', hp: 35, atk: 5, def: 2, xp: 20, speed: 45, aggro: 130, color: 0x886644 },
+  treant: { name: 'Treant', desc: 'An ancient awakened tree.', hp: 60, atk: 4, def: 5, xp: 25, speed: 15, aggro: 80, color: 0x44aa22 },
+  spider: { name: 'Spider', desc: 'A venomous cave spinner.', hp: 25, atk: 6, def: 1, xp: 22, speed: 35, aggro: 100, color: 0x884422, poison: 3 },
+  bat: { name: 'Bat', desc: 'A cave bat.', hp: 18, atk: 3, def: 0, xp: 18, speed: 50, aggro: 70, color: 0x664466 },
+  skeleton: { name: 'Skeleton', desc: 'Animated bones of a fallen mage.', hp: 40, atk: 6, def: 4, xp: 28, speed: 30, aggro: 110, color: 0xcccccc },
+  crystal: { name: 'Crystal', desc: 'A floating crystal that fires energy beams.', hp: 30, atk: 8, def: 3, xp: 30, speed: 20, aggro: 120, color: 0xaa66ff, ranged: true },
+  golem: { name: 'Golem', desc: 'A guardian made of stone.', hp: 80, atk: 8, def: 10, xp: 40, speed: 15, aggro: 100, color: 0x888866 },
+  phantom: { name: 'Phantom', desc: 'A ghostly apparition.', hp: 35, atk: 10, def: 2, xp: 45, speed: 40, aggro: 140, color: 0xccccff, teleport: true },
+  wraith: { name: 'Wraith', desc: 'A soul-draining undead horror.', hp: 45, atk: 10, def: 3, xp: 42, speed: 35, aggro: 130, color: 0x664488, lifedrain: 5 },
+  boss: { name: 'Aether Lord', desc: 'THE FINAL BOSS.', hp: 250, atk: 15, def: 8, xp: 200, speed: 25, aggro: 200, color: 0xffcc00, boss: true, ranged: true, teleport: true },
 };
 
 function buildZoneMap(zone) {

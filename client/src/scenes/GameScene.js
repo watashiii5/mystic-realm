@@ -55,6 +55,8 @@ class GameScene extends Phaser.Scene {
     this.damageTexts = [];
     this.progressMonstersKilled = 0;
     this.zonesVisited = { meadow: true };
+    this.chatPool = [];
+    this.questShown = false;
     this.levelUpText = null;
     this.levelUpTimer = 0;
   }
@@ -373,10 +375,12 @@ class GameScene extends Phaser.Scene {
     this.zoneText = this.add.text(320, 4, 'Meadow', { fontSize: '12px', fontFamily: 'monospace', color: '#88ccff', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
     this.spellBarContainer = this.add.container(0, 0).setDepth(50);
 
-    this.targetInfo = this.add.text(320, 460, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(50);
+    this.targetInfo = this.add.text(320, 460, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 2, wordWrap: { width: 300 } }).setOrigin(0.5).setDepth(50);
 
     this.progressText = this.add.text(320, 16, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
     this.updateProgressText();
+
+    this.questText = this.add.text(480, 36, '', { fontSize: '9px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 1, lineSpacing: 2, wordWrap: { width: 150 } }).setDepth(50).setAlpha(0.8);
 
     this.zoneLoreText = null;
     this.zoneLoreTimer = 0;
@@ -760,66 +764,68 @@ class GameScene extends Phaser.Scene {
   showInventory() {
     this.hideInventory();
     const g = this.add.graphics().setDepth(150);
-    g.fillStyle(0x000000, 0.85);
-    g.fillRect(120, 40, 400, 320);
+    g.fillStyle(0x000000, 0.88);
+    g.fillRect(30, 20, 580, 440);
     g.lineStyle(2, 0xffcc00);
-    g.strokeRect(120, 40, 400, 320);
+    g.strokeRect(30, 20, 580, 440);
     this.inventoryElements.push(g);
 
-    const title = this.add.text(320, 48, 'INVENTORY', { fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(150);
+    const title = this.add.text(320, 28, 'INVENTORY', { fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(150);
     this.inventoryElements.push(title);
 
-    const equipTitle = this.add.text(200, 64, 'Equipment:', { fontSize: '11px', fontFamily: 'monospace', color: '#8888ff' }).setDepth(150);
+    const equipTitle = this.add.text(50, 44, 'Equipment:', { fontSize: '11px', fontFamily: 'monospace', color: '#8888ff' }).setDepth(150);
     this.inventoryElements.push(equipTitle);
 
     const slots = ['weapon', 'armor', 'accessory'];
     const slotLabels = ['Weapon:', 'Armor:', 'Acc:'];
     for (let i = 0; i < 3; i++) {
-      const label = this.add.text(160, 80 + i * 18, slotLabels[i], { fontSize: '10px', fontFamily: 'monospace', color: '#cccccc' }).setDepth(150);
+      const label = this.add.text(50, 62 + i * 18, slotLabels[i], { fontSize: '10px', fontFamily: 'monospace', color: '#cccccc' }).setDepth(150);
       this.inventoryElements.push(label);
       const eq = this.equipped[slots[i]];
-      const val = eq || '(empty)';
-      const eText = this.add.text(220, 80 + i * 18, val, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(150);
+      const val = eq ? (eq.length > 16 ? eq.slice(0, 16) + '..' : eq) : '(empty)';
+      const eText = this.add.text(120, 62 + i * 18, val, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', wordWrap: { width: 200 } }).setDepth(150);
       this.inventoryElements.push(eText);
     }
 
-    const invTitle = this.add.text(200, 140, 'Items (' + this.inventory.length + '):', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
+    const invTitle = this.add.text(50, 120, 'Items (' + Math.min(this.inventory.length, 20) + '):', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
     this.inventoryElements.push(invTitle);
 
-    const itemsPerRow = 4;
-    for (let i = 0; i < this.inventory.length; i++) {
+    const maxShow = Math.min(this.inventory.length, 20);
+    const itemsPerRow = 3;
+    for (let i = 0; i < maxShow; i++) {
       const itemKey = this.inventory[i];
       const col = i % itemsPerRow;
       const row = Math.floor(i / itemsPerRow);
-      const ix = 140 + col * 90;
-      const iy = 158 + row * 36;
+      const ix = 50 + col * 175;
+      const iy = 140 + row * 32;
 
       const bg = this.add.graphics().setDepth(150);
-      bg.fillStyle(0x444444); bg.fillRect(ix, iy, 80, 28);
-      bg.lineStyle(1, 0x666666); bg.strokeRect(ix, iy, 80, 28);
+      bg.fillStyle(0x444444); bg.fillRect(ix, iy, 165, 26);
+      bg.lineStyle(1, 0x666666); bg.strokeRect(ix, iy, 165, 26);
       this.inventoryElements.push(bg);
 
-      const iText = this.add.text(ix + 4, iy + 2, itemKey, { fontSize: '9px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(150);
+      const shortKey = itemKey.length > 14 ? itemKey.slice(0, 14) + '..' : itemKey;
+      const iText = this.add.text(ix + 4, iy + 1, shortKey, { fontSize: '9px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(150);
       this.inventoryElements.push(iText);
 
       const useBg = this.add.graphics().setDepth(151);
-      useBg.fillStyle(0x335533); useBg.fillRect(ix + 2, iy + 16, 36, 10);
-      useBg.setInteractive(new Phaser.Geom.Rectangle(ix + 2, iy + 16, 36, 10), Phaser.Geom.Rectangle.Contains);
+      useBg.fillStyle(0x335533); useBg.fillRect(ix + 2, iy + 14, 50, 10);
+      useBg.setInteractive(new Phaser.Geom.Rectangle(ix + 2, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
       const iid = i;
       useBg.on('pointerdown', () => { this.network.emit('use_item', { itemKey: this.inventory[iid] }); this.showInventory(); });
       this.inventoryElements.push(useBg);
 
-      const useText = this.add.text(ix + 20, iy + 17, 'Use', { fontSize: '8px', fontFamily: 'monospace', color: '#88ff88' }).setOrigin(0.5).setDepth(152);
+      const useText = this.add.text(ix + 27, iy + 15, 'Use', { fontSize: '8px', fontFamily: 'monospace', color: '#88ff88' }).setOrigin(0.5).setDepth(152);
       this.inventoryElements.push(useText);
 
       const eqBg = this.add.graphics().setDepth(151);
-      eqBg.fillStyle(0x333355); eqBg.fillRect(ix + 42, iy + 16, 36, 10);
-      eqBg.setInteractive(new Phaser.Geom.Rectangle(ix + 42, iy + 16, 36, 10), Phaser.Geom.Rectangle.Contains);
+      eqBg.fillStyle(0x333355); eqBg.fillRect(ix + 56, iy + 14, 50, 10);
+      eqBg.setInteractive(new Phaser.Geom.Rectangle(ix + 56, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
       const iid2 = i;
       eqBg.on('pointerdown', () => { this.network.emit('equip_item', { itemKey: this.inventory[iid2] }); this.showInventory(); });
       this.inventoryElements.push(eqBg);
 
-      const eqText = this.add.text(ix + 60, iy + 17, 'Equip', { fontSize: '8px', fontFamily: 'monospace', color: '#8888ff' }).setOrigin(0.5).setDepth(152);
+      const eqText = this.add.text(ix + 81, iy + 15, 'Equip', { fontSize: '8px', fontFamily: 'monospace', color: '#8888ff' }).setOrigin(0.5).setDepth(152);
       this.inventoryElements.push(eqText);
     }
   }
@@ -850,20 +856,29 @@ class GameScene extends Phaser.Scene {
   }
 
   addChatMessage(name, text, color) {
-    const maxMsg = 8;
-    const msg = name + ': ' + text;
+    const maxMsg = 6;
+    const displayName = name.length > 12 ? name.slice(0, 12) + '..' : name;
+    const displayText = text.length > 60 ? text.slice(0, 60) + '..' : text;
+    const msg = displayName + ': ' + displayText;
     this.chatMessages.push(msg);
     if (this.chatMessages.length > maxMsg) this.chatMessages.shift();
     this.renderChatHistory();
   }
 
   renderChatHistory() {
-    this.chatTexts.forEach(t => t.destroy());
-    this.chatTexts = [];
     const startY = 400;
     for (let i = 0; i < this.chatMessages.length; i++) {
-      const t = this.add.text(10, startY + i * 16, this.chatMessages[i], { fontSize: '12px', fontFamily: 'monospace', color: '#cccccc', stroke: '#000000', strokeThickness: 2 }).setDepth(150);
-      this.chatTexts.push(t);
+      let t = this.chatPool[i];
+      if (!t) {
+        t = this.add.text(10, startY + i * 16, '', { fontSize: '11px', fontFamily: 'monospace', color: '#cccccc', stroke: '#000000', strokeThickness: 2, wordWrap: { width: 580 } }).setDepth(150);
+        this.chatPool.push(t);
+      }
+      t.setText(this.chatMessages[i]);
+      t.setPosition(10, startY + i * 16);
+      t.setVisible(true);
+    }
+    for (let i = this.chatMessages.length; i < this.chatPool.length; i++) {
+      this.chatPool[i].setVisible(false);
     }
   }
 
@@ -928,15 +943,32 @@ class GameScene extends Phaser.Scene {
 
   updateProgressText() {
     if (!this.progressText) return;
-    const zonesFound = Object.keys(this.zonesVisited || { meadow: true }).length;
-    const totalZones = 5;
-    this.progressText.setText('Zones: ' + zonesFound + '/' + totalZones + '  |  Monsters Killed: ' + (this.progressMonstersKilled || 0));
+    this.progressText.setText('Kills: ' + (this.progressMonstersKilled || 0) + ' | Lv.' + (this.myStats?.level || 1));
+    this.updateQuestText();
+  }
+
+  updateQuestText() {
+    if (!this.questText) return;
+    const zones = ['meadow', 'forest', 'caves', 'ruins', 'tower'];
+    const names = ['Meadow', 'Forest', 'Caves', 'Ruins', 'Tower'];
+    const levels = ['1-5', '5-10', '10-15', '15-20', '20+'];
+    const lines = ['GOAL:', 'Explore all 5 zones +'];
+    for (let i = 0; i < 5; i++) {
+      const visited = this.zonesVisited && this.zonesVisited[zones[i]];
+      const icon = visited ? '[+]' : '[ ]';
+      const color = visited ? '#88ff88' : '#666666';
+      lines.push(icon + ' ' + names[i] + ' (Lv' + levels[i] + ')');
+    }
+    lines.push('');
+    lines.push('Defeat the Aether Lord');
+    lines.push('in the Tower!');
+    this.questText.setText(lines.join('\n'));
   }
 
   showZoneLore(zoneName, lore, color) {
     if (this.zoneLoreText) this.zoneLoreText.destroy();
-    const lines = zoneName + '\n' + lore;
-    this.zoneLoreText = this.add.text(320, 180, lines, {
+    const shortLore = lore.length > 100 ? lore.slice(0, 97) + '...' : lore;
+    this.zoneLoreText = this.add.text(320, 110, zoneName + '\n' + shortLore, {
       fontSize: '11px',
       fontFamily: 'monospace',
       color: color || '#88ccff',
@@ -944,14 +976,15 @@ class GameScene extends Phaser.Scene {
       strokeThickness: 3,
       align: 'center',
       lineSpacing: 4,
+      wordWrap: { width: 350 },
     }).setOrigin(0.5).setDepth(60).setAlpha(0);
 
     this.tweens.add({
       targets: this.zoneLoreText,
       alpha: 1,
-      duration: 500,
+      duration: 400,
       yoyo: true,
-      hold: 4000,
+      hold: 3000,
       onComplete: () => { if (this.zoneLoreText) { this.zoneLoreText.destroy(); this.zoneLoreText = null; } }
     });
   }
@@ -973,44 +1006,39 @@ class GameScene extends Phaser.Scene {
   showHelp() {
     this.showingHelp = true;
     const g = this.add.graphics().setDepth(300);
-    g.fillStyle(0x000000, 0.9);
-    g.fillRect(40, 20, 560, 440);
+    g.fillStyle(0x000000, 0.92);
+    g.fillRect(10, 10, 620, 460);
     g.lineStyle(2, 0xffcc00);
-    g.strokeRect(40, 20, 560, 440);
+    g.strokeRect(10, 10, 620, 460);
     this.helpElements.push(g);
 
     const lines = [
-      { text: '=== CONTROLS ===', color: '#ffcc00', size: '14px' },
-      { text: 'WASD / Arrow Keys  -  Move', color: '#ffffff', size: '12px' },
-      { text: '1 - 5  -  Select spell slot', color: '#ffffff', size: '12px' },
-      { text: 'Click  -  Cast selected spell at mouse', color: '#ffffff', size: '12px' },
-      { text: 'Click monster  -  Target it', color: '#ffffff', size: '12px' },
-      { text: 'Click item on ground  -  Pick it up', color: '#ffffff', size: '12px' },
-      { text: 'I  -  Toggle inventory (Use/Equip items)', color: '#ffffff', size: '12px' },
-      { text: 'Enter  -  Chat', color: '#ffffff', size: '12px' },
-      { text: 'R  -  Respawn (when dead)', color: '#ffffff', size: '12px' },
-      { text: 'H / Escape  -  Close this help', color: '#ffffff', size: '12px' },
-      { text: '', color: '#ffffff', size: '12px' },
-      { text: '=== GAMEPLAY ===', color: '#ffcc00', size: '14px' },
-      { text: 'Kill monsters to earn XP and level up', color: '#aaaaaa', size: '12px' },
-      { text: 'Collect loot from monster kills', color: '#aaaaaa', size: '12px' },
-      { text: 'Equip weapons/armor/accessories to grow stronger', color: '#aaaaaa', size: '12px' },
-      { text: 'Use potions to restore HP/MP', color: '#aaaaaa', size: '12px' },
-      { text: 'Explore 5 zones: Meadow -> Forest -> Caves -> Ruins -> Tower', color: '#aaaaaa', size: '12px' },
-      { text: 'Defeat the Aether Lord boss in the Tower!', color: '#ffcc00', size: '12px' },
-      { text: '', color: '#ffffff', size: '12px' },
-      { text: 'This is a solo adventure. Multiplayer is optional!', color: '#88ccff', size: '12px' },
+      { text: '=== CONTROLS ===', color: '#ffcc00', s: 13 },
+      { text: 'WASD / Arrow Keys', color: '#ffffff', s: 11 }, { text: 'Move', color: '#888888', s: 11 },
+      { text: '1 - 5', color: '#ffffff', s: 11 }, { text: 'Select spell, click to cast', color: '#888888', s: 11 },
+      { text: 'Click monster', color: '#ffffff', s: 11 }, { text: 'Target it (see info below)', color: '#888888', s: 11 },
+      { text: 'Click item', color: '#ffffff', s: 11 }, { text: 'Pick up from ground', color: '#888888', s: 11 },
+      { text: 'I', color: '#ffffff', s: 11 }, { text: 'Inventory (Use/Equip items)', color: '#888888', s: 11 },
+      { text: 'Enter', color: '#ffffff', s: 11 }, { text: 'Chat', color: '#888888', s: 11 },
+      { text: 'R', color: '#ffffff', s: 11 }, { text: 'Respawn when dead', color: '#888888', s: 11 },
+      { text: 'H / Esc', color: '#ffffff', s: 11 }, { text: 'Close this help', color: '#888888', s: 11 },
+      { text: '', color: '#ffffff', s: 11 },
+      { text: '=== GAMEPLAY ===', color: '#ffcc00', s: 13 },
+      { text: 'Kill monsters -> XP -> Level up -> Grow stronger', color: '#aaaaaa', s: 11 },
+      { text: 'Collect loot, equip gear, use potions', color: '#aaaaaa', s: 11 },
+      { text: '5 zones: Meadow > Forest > Caves > Ruins > Tower', color: '#aaaaaa', s: 11 },
+      { text: 'Final goal: Defeat the Aether Lord in the Tower!', color: '#ffcc00', s: 11 },
+      { text: '', color: '#ffffff', s: 11 },
+      { text: 'Solo adventure (multiplayer optional)', color: '#88ccff', s: 11 },
     ];
 
-    const startY = 40;
+    let y = 22;
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i];
-      const t = this.add.text(320, startY + 20 + i * 20, l.text, {
-        fontSize: l.size,
-        fontFamily: 'monospace',
-        color: l.color,
-      }).setOrigin(0.5, 0).setDepth(301);
+      const t = this.add.text(320, y, l.text, { fontSize: l.s + 'px', fontFamily: 'monospace', color: l.color }).setOrigin(0.5, 0).setDepth(301);
       this.helpElements.push(t);
+      y += (l.text === '' ? 8 : l.s > 12 ? 22 : 16);
+      if (y > 440) break;
     }
   }
 
