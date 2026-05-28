@@ -113,7 +113,7 @@ function isWalkable(zone, tileX, tileY) {
   const map = getZoneMap(zone);
   if (tileY < 0 || tileY >= MAP_ROWS || tileX < 0 || tileX >= MAP_COLS) return false;
   const t = map[tileY][tileX];
-  return t === 0 || t === 4 || t === 5 || t === 6 || t === 7 || t === 8;
+  return t === 0 || t === 4 || t === 5 || t === 6 || t === 7 || t === 8 || t === 9 || t === 10 || t === 11 || t === 12;
 }
 
 function getEdgeZone(zone, tileX, tileY) {
@@ -130,7 +130,8 @@ function getSpawnTile(zone) {
   const map = getZoneMap(zone);
   for (let y = 2; y < MAP_ROWS - 2; y++) {
     for (let x = 2; x < MAP_COLS - 2; x++) {
-      if (map[y][x] === 0 || map[y][x] === 4) return { x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 };
+      const t = map[y][x];
+      if (t === 0 || t === 4 || t === 9 || t === 10 || t === 11 || t === 12) return { x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 };
     }
   }
   return { x: 5 * TILE_SIZE + TILE_SIZE / 2, y: 5 * TILE_SIZE + TILE_SIZE / 2 };

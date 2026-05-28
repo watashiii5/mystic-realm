@@ -42,6 +42,18 @@ class CharCreateScene extends Phaser.Scene {
     }).setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: this.nameText, alpha: 1, duration: 400, delay: 200 });
 
+    const nameBtnBg = this.add.graphics().setDepth(10);
+    nameBtnBg.fillStyle(0x444488); nameBtnBg.fillRoundedRect(cx + 80, 70, 60, 20, 6);
+    nameBtnBg.setAlpha(0);
+    this.tweens.add({ targets: nameBtnBg, alpha: 0.6, duration: 400, delay: 500 });
+    const nameBtnText = this.add.text(cx + 110, 80, 'SET', { fontSize: '11px', fontFamily: 'monospace', color: '#aaaaff' }).setOrigin(0.5).setDepth(11).setAlpha(0);
+    this.tweens.add({ targets: nameBtnText, alpha: 1, duration: 400, delay: 500 });
+    const nameZone = this.add.zone(cx + 110, 80, 60, 20).setInteractive().setDepth(12);
+    nameZone.on('pointerdown', () => {
+      const n = window.prompt('Enter character name:', this.playerName || '');
+      if (n) { this.playerName = n.slice(0, 16); this.nameText.setText('Name: ' + this.playerName + '_'); }
+    });
+
     this.classPreview = this.add.image(cx, 175, CHAR_CLASSES[0].texture).setScale(3).setAlpha(0);
     this.tweens.add({ targets: this.classPreview, alpha: 1, scaleX: 3, scaleY: 3, duration: 500, delay: 300 });
 
@@ -75,10 +87,19 @@ class CharCreateScene extends Phaser.Scene {
       else this.switchClass(1);
     });
 
-    this.add.text(cx, 355, '\u2190 Click sides to switch     ENTER Join \u2192', {
+    this.add.text(cx, 355, '\u2190 Tap sides to switch     ENTER Join \u2192', {
       fontSize: '11px', fontFamily: 'monospace', color: '#555577',
     }).setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: this.children.list[this.children.list.length - 1], alpha: 1, duration: 400, delay: 700 });
+
+    const joinBg = this.add.graphics().setDepth(10);
+    joinBg.fillStyle(0x44aa44); joinBg.fillRoundedRect(cx - 60, 380, 120, 32, 8);
+    joinBg.setAlpha(0);
+    this.tweens.add({ targets: joinBg, alpha: 1, duration: 400, delay: 800 });
+    const joinText = this.add.text(cx, 396, 'JOIN', { fontSize: '18px', fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5).setDepth(11).setAlpha(0);
+    this.tweens.add({ targets: joinText, alpha: 1, duration: 400, delay: 800 });
+    const joinZone = this.add.zone(cx, 396, 120, 32).setInteractive().setDepth(12);
+    joinZone.on('pointerdown', () => this.joinGame());
 
     this.arrowLeft = this.add.text(30, 175, '\u25C0', { fontSize: '28px', fontFamily: 'monospace', color: '#555577' }).setOrigin(0.5).setAlpha(0.5);
     this.arrowRight = this.add.text(610, 175, '\u25B6', { fontSize: '28px', fontFamily: 'monospace', color: '#555577' }).setOrigin(0.5).setAlpha(0.5);

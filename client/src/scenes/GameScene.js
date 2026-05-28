@@ -121,6 +121,7 @@ class GameScene extends Phaser.Scene {
     this.network = new Network();
     this.setupNetwork();
     this.network.connect();
+    if (this.input.gamepad) this.input.gamepad.start();
 
     this.showingHelp = false;
     this.helpElements = [];
@@ -214,7 +215,11 @@ class GameScene extends Phaser.Scene {
       btn('' + (i+1), sx, 440, 48, 32, () => { if (this.spells[i]) this.selectSpell(i); });
     }
 
-    btn('R', 588, 324, 44, 32, () => { if (this.dead) this.respawn(); });
+    btn('R', 588, 280, 44, 32, () => { if (this.dead) this.respawn(); });
+    btn('CHAT', 525, 280, 58, 32, () => {
+      const msg = window.prompt('Enter chat message:');
+      if (msg && msg.length > 0 && this.network) this.network.emit('chat_message', { text: msg });
+    });
 
     this.touchSprint = false;
     btn('>>', 540, 370, 44, 32, (v) => { this.touchSprint = v; });
@@ -397,7 +402,7 @@ class GameScene extends Phaser.Scene {
 
     self.network.on('item_removed', (data) => {
       const gs = self.groundItemSprites[data.itemId];
-      if (gs) { gs.sprite.destroy(); if (gs.zone) gs.zone.destroy(); if (gs.label) gs.label.destroy(); if (gs.pulse) gs.pulse.stop(); delete self.groundItemSprites[data.itemId]; }
+      if (gs) { gs.sprite.destroy(); if (gs.glow) gs.glow.destroy(); if (gs.zone) gs.zone.destroy(); if (gs.label) gs.label.destroy(); if (gs.pulse) gs.pulse.stop(); delete self.groundItemSprites[data.itemId]; }
     });
 
     self.network.on('ground_items', (items) => {
@@ -542,10 +547,11 @@ class GameScene extends Phaser.Scene {
 
     this.atkDefText = this.add.text(60, 62, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa' });
     this.hudContainer.add(this.atkDefText);
-    this.statPointsText = this.add.text(10, 72, '', { fontSize: '9px', fontFamily: 'monospace', color: '#ffcc00' });
+    this.statPointsText = this.add.text(10, 72, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 });
     this.hudContainer.add(this.statPointsText);
     this.sprintText = this.add.text(140, 72, '', { fontSize: '8px', fontFamily: 'monospace', color: '#88ccff' });
     this.hudContainer.add(this.sprintText);
+    this.spIndicator = this.add.text(188, 4, '', { fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 3 }).setDepth(55);
 
     this.zoneText = this.add.text(320, 4, 'Meadow', { fontSize: '12px', fontFamily: 'monospace', color: '#88ccff', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
     this.spellBarContainer = this.add.container(0, 0).setDepth(50);
@@ -588,7 +594,16 @@ class GameScene extends Phaser.Scene {
 
     this.lvlText.setText('Lv.' + this.myStats.level);
     this.atkDefText.setText('ATK:' + this.myStats.atk + ' DEF:' + this.myStats.def);
-    this.statPointsText.setText('Points: ' + (this.statPoints || 0));
+    if (this.statPoints > 0) {
+      this.statPointsText.setText('+ ' + this.statPoints + ' SP!');
+      if (this.spIndicator) {
+        this.spIndicator.setText('SP!');
+        this.spIndicator.setAlpha(0.5 + Math.sin(Date.now() * 0.005) * 0.5);
+      }
+    } else {
+      this.statPointsText.setText('');
+      if (this.spIndicator) this.spIndicator.setText('');
+    }
   }
 
   updateXPBar(xp) {
@@ -738,7 +753,6 @@ class GameScene extends Phaser.Scene {
     const mid = m.id;
     clickZone.on('pointerdown', () => {
       this.targetMonster = mid;
-      this.selectedSpell = null;
       this.updateSpellBar();
       this.showTargetRing(m.x, m.y);
     });
@@ -954,40 +968,57 @@ class GameScene extends Phaser.Scene {
     this.projectileSprites = {};
   }
 
+  getItemTexture(itemKey) {
+    if (!itemKey) return 'item_artifact';
+    if (itemKey.includes('_scroll')) return 'item_scroll';
+    if (itemKey.includes('pot')) return 'item_potion';
+    if (itemKey.includes('staff') || itemKey.includes('_wand')) return 'item_staff';
+    if (itemKey.includes('robe') || itemKey.includes('cloak')) return 'item_robe';
+    if (itemKey.includes('ring') || itemKey.includes('_ring')) return 'item_ring';
+    if (itemKey.includes('_orb') || itemKey.includes('_crystal') || itemKey.includes('boss_')) return 'item_artifact';
+    return 'item_artifact';
+  }
+
   addGroundItemSprite(item) {
     if (this.groundItemSprites[item.id]) return;
-    const g = this.add.graphics().setDepth(5);
     const itemKey = item.k || '';
     const tier = ITEM_TIERS[itemKey] !== undefined ? ITEM_TIERS[itemKey] : 1;
     const rarityCol = parseInt(RARITY_COLORS[tier].replace('#', ''), 16);
     const isScroll = itemKey.includes('_scroll');
+    const texKey = this.getItemTexture(itemKey);
 
-    g.fillStyle(isScroll ? 0x88ddff : rarityCol);
-    g.fillCircle(0, 0, 6);
-    g.fillStyle(0xffffff, 0.4);
-    g.fillCircle(-1, -1, 2);
-    g.lineStyle(1, rarityCol, 0.6);
-    g.strokeCircle(0, 0, 8);
-    g.setPosition(item.x, item.y);
+    const sprite = this.add.image(0, 0, texKey).setDepth(5).setPosition(item.x, item.y);
+    if (tier > 0) {
+      const glow = this.add.graphics().setDepth(4);
+      glow.fillStyle(rarityCol, 0.12);
+      glow.fillCircle(item.x, item.y, 14);
+      glow.lineStyle(1, rarityCol, 0.35);
+      glow.strokeCircle(item.x, item.y, 12);
+      this.groundItemSprites[item.id] = { sprite, zone: null, pulse: null, label: null, glow };
+    } else {
+      this.groundItemSprites[item.id] = { sprite, zone: null, pulse: null, label: null, glow: null };
+    }
 
     const clickZone = this.add.zone(item.x, item.y, 22, 22).setInteractive().setDepth(5);
     const iid = item.id;
     clickZone.on('pointerdown', () => {
       this.network.emit('pickup_item', { itemId: iid });
     });
-    const label = this.add.text(item.x, item.y - 14, isScroll ? 'Scroll' : ITEM_NAMES[itemKey] || 'Item', {
+
+    const displayName = isScroll ? 'Scroll' : ITEM_NAMES[itemKey] || 'Item';
+    const label = this.add.text(item.x, item.y - 14, displayName, {
       fontSize: '9px', fontFamily: 'monospace', color: RARITY_COLORS[tier], stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(6).setAlpha(0.8);
+    }).setOrigin(0.5).setDepth(6).setAlpha(0.85);
+    this.groundItemSprites[item.id].zone = clickZone;
+    this.groundItemSprites[item.id].label = label;
+
+    const flash = this.add.circle(item.x, item.y, 4, rarityCol, 0.5).setDepth(6);
+    this.tweens.add({ targets: flash, scaleX: 4, scaleY: 4, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
 
     const pulse = this.tweens.add({
-      targets: g,
-      alpha: { from: 0.5, to: 1 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
+      targets: sprite, alpha: { from: 0.7, to: 1 }, duration: 900, yoyo: true, repeat: -1,
     });
-
-    this.groundItemSprites[item.id] = { sprite: g, zone: clickZone, pulse, label };
+    this.groundItemSprites[item.id].pulse = pulse;
   }
 
   updateGroundItems(items) {
@@ -1003,7 +1034,8 @@ class GameScene extends Phaser.Scene {
       if (!activeIds.has(parseInt(id))) {
         const gis = this.groundItemSprites[id];
         gis.sprite.destroy();
-        gis.zone.destroy();
+        if (gis.glow) gis.glow.destroy();
+        if (gis.zone) gis.zone.destroy();
         if (gis.label) gis.label.destroy();
         if (gis.pulse) gis.pulse.stop();
         delete this.groundItemSprites[id];
@@ -1015,7 +1047,8 @@ class GameScene extends Phaser.Scene {
     for (const id in this.groundItemSprites) {
       const gis = this.groundItemSprites[id];
       gis.sprite.destroy();
-      gis.zone.destroy();
+      if (gis.glow) gis.glow.destroy();
+      if (gis.zone) gis.zone.destroy();
       if (gis.label) gis.label.destroy();
       if (gis.pulse) gis.pulse.stop();
     }
@@ -1081,7 +1114,13 @@ class GameScene extends Phaser.Scene {
     if (this.dead) {
       this.dead = false;
       this.network.emit('respawn');
-      if (this.playerSprite) this.playerSprite.setAlpha(1);
+      if (this.playerSprite) {
+        this.playerSprite.setAlpha(0.3);
+        this.tweens.add({ targets: this.playerSprite, alpha: 1, duration: 500, ease: 'Cubic.easeOut' });
+        const ring = this.add.graphics().setDepth(10);
+        ring.fillStyle(0x88ff88, 0.2); ring.fillCircle(this.playerSprite.x, this.playerSprite.y, 6);
+        this.tweens.add({ targets: ring, scaleX: 6, scaleY: 6, alpha: 0, duration: 600, onComplete: () => ring.destroy() });
+      }
     }
   }
 
@@ -1118,29 +1157,36 @@ class GameScene extends Phaser.Scene {
       this.inventoryElements.push(eText);
     }
 
-    if (this.statPoints > 0) {
-      const spTitle = this.add.text(50, 116, 'Stat Points: ' + this.statPoints, { fontSize: '11px', fontFamily: 'monospace', color: '#ffcc00' }).setDepth(150);
+    const spSection = this.statPoints > 0;
+    if (spSection) {
+      const spBg = this.add.graphics().setDepth(150);
+      spBg.fillStyle(0x443300, 0.6); spBg.fillRect(40, 114, 300, 38);
+      spBg.lineStyle(1, 0xffcc00, 0.5); spBg.strokeRect(40, 114, 300, 38);
+      this.inventoryElements.push(spBg);
+
+      const spTitle = this.add.text(50, 116, 'SKILL POINTS: ' + this.statPoints + '  (Press I to close)', { fontSize: '11px', fontFamily: 'monospace', color: '#ffcc00' }).setDepth(150);
       this.inventoryElements.push(spTitle);
-      const stats = [{k:'hp',l:'HP +10'},{k:'mp',l:'MP +8'},{k:'atk',l:'ATK +2'},{k:'def',l:'DEF +2'}];
+      const stats = [{k:'hp',l:'+10 HP'},{k:'mp',l:'+8 MP'},{k:'atk',l:'+2 ATK'},{k:'def',l:'+2 DEF'}];
       for (let si = 0; si < 4; si++) {
-        const sx = 50 + si * 75;
+        const sx = 50 + si * 72;
         const bg = this.add.graphics().setDepth(151);
-        bg.fillStyle(0x444422); bg.fillRect(sx, 128, 68, 16);
-        bg.setInteractive(new Phaser.Geom.Rectangle(sx, 128, 68, 16), Phaser.Geom.Rectangle.Contains);
+        bg.fillStyle(0x665522); bg.fillRoundedRect(sx, 130, 66, 20, 4);
+        bg.lineStyle(1, 0xffcc00, 0.4); bg.strokeRoundedRect(sx, 130, 66, 20, 4);
+        bg.setInteractive(new Phaser.Geom.Rectangle(sx, 130, 66, 20), Phaser.Geom.Rectangle.Contains);
         const sk = stats[si].k;
         bg.on('pointerdown', () => { this.network.emit('allocate_stat', { stat: sk }); this.showInventory(); });
         this.inventoryElements.push(bg);
-        const t = this.add.text(sx + 34, 136, stats[si].l, { fontSize: '9px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(152);
+        const t = this.add.text(sx + 33, 140, stats[si].l, { fontSize: '11px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(152);
         this.inventoryElements.push(t);
       }
     }
 
-    const invTitle = this.add.text(50, 120 + (this.statPoints > 0 ? 28 : 0), 'Items (' + Math.min(this.inventory.length, 20) + '):', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
+    const invTitle = this.add.text(50, 120 + (spSection ? 38 : 0), 'Items (' + Math.min(this.inventory.length, 20) + ') — Use  Equip:', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
     this.inventoryElements.push(invTitle);
 
     const maxShow = Math.min(this.inventory.length, 20);
     const itemsPerRow = 3;
-    const invOffset = this.statPoints > 0 ? 28 : 0;
+    const invOffset = this.statPoints > 0 ? 38 : 0;
     for (let i = 0; i < maxShow; i++) {
       const itemKey = this.inventory[i];
       const col = i % itemsPerRow;
@@ -1292,6 +1338,19 @@ class GameScene extends Phaser.Scene {
     let dy = 0;
     let direction = this.facingDir;
 
+    const pad = this.input.gamepad && this.input.gamepad.pad1;
+    if (pad) {
+      const ax = pad.leftStick.x;
+      const ay = pad.leftStick.y;
+      if (Math.abs(ax) > 0.2) { dx = ax > 0 ? 1 : -1; direction = ax > 0 ? 'right' : 'left'; }
+      if (Math.abs(ay) > 0.2) { dy = ay > 0 ? 1 : -1; direction = ay > 0 ? 'down' : 'up'; }
+      if (pad.A) this.selectSpell(0);
+      if (pad.B || pad.X) { if (this.spells[1]) this.selectSpell(1); }
+      if (pad.Y) this.toggleInventory();
+      if (pad.L1) this.toggleHelp();
+      if (pad.R1 && this.dead) this.respawn();
+    }
+
     if (this.keys.A.isDown || this.keys.LEFT.isDown || this.touch.left) { dx = -1; direction = 'left'; }
     else if (this.keys.D.isDown || this.keys.RIGHT.isDown || this.touch.right) { dx = 1; direction = 'right'; }
 
@@ -1320,7 +1379,7 @@ class GameScene extends Phaser.Scene {
 
       if (this.mapData && this.mapData[tileY] && this.mapData[tileY][tileX] !== undefined) {
         const tile = this.mapData[tileY][tileX];
-        if (tile === 0 || tile === 4 || tile === 5 || tile === 6 || tile === 7 || tile === 8) {
+        if (tile === 0 || tile === 4 || tile === 5 || tile === 6 || tile === 7 || tile === 8 || tile === 9 || tile === 10 || tile === 11 || tile === 12) {
           this.playerSprite.x = newX;
           this.playerSprite.y = newY;
         }
@@ -1345,6 +1404,12 @@ class GameScene extends Phaser.Scene {
         const offY = direction === 'up' ? 10 : direction === 'down' ? -10 : (Math.random() - 0.5) * 8;
         const sl = this.add.text(this.playerSprite.x + offX, this.playerSprite.y + offY, '|', { fontSize: '6px', fontFamily: 'monospace', color: '#88ccff' }).setOrigin(0.5).setDepth(8).setAlpha(0.5);
         this.sprintLines.push(sl);
+      }
+      if (this.sprintMpTimer === undefined) this.sprintMpTimer = 0;
+      this.sprintMpTimer += delta;
+      if (this.sprintMpTimer > 200) {
+        this.sprintMpTimer = 0;
+        this.showDamageNumber(this.playerSprite.x + 10, this.playerSprite.y - 16, '-1 MP', '#8888ff');
       }
     } else {
       for (let i = this.sprintLines.length - 1; i >= 0; i--) {
@@ -1467,8 +1532,8 @@ class GameScene extends Phaser.Scene {
     this.sendChatMessage('System', 'WASD/Arrows to move | Shift to sprint (costs MP)', '#88ccff');
     this.sendChatMessage('System', 'Press 1-5 to select a spell, then CLICK anywhere to cast it at that spot', '#88ff88');
     this.sendChatMessage('System', 'Click monsters to target them | Click items on ground to pick up', '#88ccff');
-    this.sendChatMessage('System', 'Press I for inventory (Use/Equip) | Press H for help', '#88ccff');
-    this.sendChatMessage('System', 'Enter to chat | R to respawn if you die', '#88ccff');
+    this.sendChatMessage('System', 'Press I for inventory — spend SKILL POINTS there on level up!', '#ffcc00');
+    this.sendChatMessage('System', 'Press H for help | Enter to chat | R to respawn', '#88ccff');
     this.sendChatMessage('System', 'GOAL: Explore all 5 zones and defeat the Aether Lord in the Tower!', '#ffcc00');
   }
 
@@ -1499,6 +1564,7 @@ class GameScene extends Phaser.Scene {
       { text: 'Enter : Chat with other players', color: '#cccccc', s: 10 },
       { text: 'R : Respawn after death', color: '#cccccc', s: 10 },
       { text: 'H / Esc : Open/close Guide', color: '#cccccc', s: 10 },
+      { text: 'Gamepad : Left stick move, A/B/X cast, Y inventory', color: '#cccccc', s: 10 },
       { text: '', color: '#ffffff', s: 6 },
       { text: '--- HOW TO PLAY ---', color: '#88ccff', s: 12 },
       { text: '1. Kill monsters to earn XP and loot', color: '#aaaaaa', s: 10 },

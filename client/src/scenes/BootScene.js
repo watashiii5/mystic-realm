@@ -186,6 +186,41 @@ class BootScene extends Phaser.Scene {
     make('player_archer_back', (g) => drawCharBack(g, 0x44aa44, 0x66cc66, false));
     make('player_summoner_back', (g) => drawCharBack(g, 0x8844aa, 0xaa66cc, true));
 
+    make('item_staff', (g) => {
+      g.fillStyle(0x8B4513); g.fillRect(14, 4, 4, 24);
+      g.fillStyle(0x8888ff, 0.7); g.fillCircle(16, 6, 6);
+      g.fillStyle(0xffffff, 0.4); g.fillCircle(15, 5, 2);
+    });
+    make('item_robe', (g) => {
+      g.fillStyle(0x3355aa); g.fillRect(8, 6, 16, 20);
+      g.fillStyle(0x5577cc); g.fillRect(8, 6, 16, 4);
+      g.fillStyle(0x2244aa, 0.6); g.fillRect(10, 12, 12, 12);
+    });
+    make('item_ring', (g) => {
+      g.lineStyle(3, 0xffcc00); g.strokeCircle(16, 16, 8);
+      g.fillStyle(0xff8800, 0.3); g.fillCircle(16, 16, 6);
+      g.fillStyle(0xffcc00); g.fillCircle(16, 10, 3);
+    });
+    make('item_potion', (g) => {
+      g.fillStyle(0x44cc44); g.fillRect(12, 8, 8, 18);
+      g.fillStyle(0x66ee66); g.fillRect(12, 8, 8, 6);
+      g.fillStyle(0x338833); g.fillRect(14, 4, 4, 6);
+      g.fillStyle(0xffffff, 0.3); g.fillRect(13, 12, 3, 6);
+    });
+    make('item_scroll', (g) => {
+      g.fillStyle(0xeedd99); g.fillRect(8, 6, 16, 20);
+      g.fillStyle(0xddcc88); g.fillRect(8, 6, 16, 3);
+      g.fillStyle(0xccbb77); g.fillRect(8, 23, 16, 3);
+      g.fillStyle(0x886644); g.fillRect(13, 10, 6, 8);
+      g.fillStyle(0xaa8866); g.fillRect(14, 11, 4, 6);
+    });
+    make('item_artifact', (g) => {
+      g.fillStyle(0x8844aa); g.fillTriangle(16, 2, 4, 26, 28, 26);
+      g.fillStyle(0xaa66cc); g.fillTriangle(16, 6, 8, 24, 24, 24);
+      g.fillStyle(0xffcc00, 0.8); g.fillCircle(16, 16, 4);
+      g.fillStyle(0xffffff, 0.5); g.fillCircle(15, 15, 2);
+    });
+
     this.scene.start('MenuScene');
   }
 }
