@@ -470,6 +470,9 @@ io.on('connection', (socket) => {
     if (isWalkable(player.zone, tileX, tileY)) { player.x = data.x; player.y = data.y; }
     player.direction = data.direction || player.direction;
     player.moving = data.moving !== undefined ? data.moving : false;
+    if (data.sprinting && player.moving && player.mp > 0) {
+      player.mp = Math.max(0, player.mp - 1);
+    }
 
     const edge = getEdgeZone(player.zone, tileX, tileY);
     if (edge && edge !== currentZone) {
@@ -528,7 +531,34 @@ io.on('connection', (socket) => {
     const tx = data.toX || player.x + 50;
     const ty = data.toY || player.y;
 
-    if (spell.summon || spell.dmg >= 0) {
+    if (spell.melee && spell.radius > 0) {
+      const monsters = getMonstersInZone(currentZone);
+      const radSq = spell.radius * spell.radius;
+      for (let mi = 0; mi < monsters.length; mi++) {
+        const m = monsters[mi];
+        if (!m.alive || distSq(m.x, m.y, player.x, player.y) > radSq) continue;
+        const dmg = spell.dmg - m.def > 0 ? (spell.dmg | 0) - m.def : 1;
+        m.hp -= dmg;
+        io.to('zone_' + currentZone).emit('combat_event', { t: 'damage', ty: 'monster', ti: m.id, a: dmg, x: m.x, y: m.y });
+        if (m.hp <= 0) {
+          m.hp = 0; m.alive = false;
+          player.monstersKilled++;
+          const xpr = giveXP(player, m.xp);
+          io.to('zone_' + currentZone).emit('monster_died', { mid: m.id, pid: id, x: m.x, y: m.y, xp: m.xp, lv: xpr.leveledUp, nl: xpr.newLevel, xpe: player.xp, mk: player.monstersKilled });
+          const isBoss = m.boss === true;
+          const loot = isBoss ? (rollLoot(currentZone) || rollLoot(currentZone)) : rollLoot(currentZone);
+          if (loot) {
+            const li = { id: gameState.nextItemId++, zone: currentZone, x: m.x + (Math.random() - 0.5) * 20, y: m.y + (Math.random() - 0.5) * 20, k: loot.itemKey, n: loot.name, t: loot.type, s: loot.spell };
+            if (!gameState.groundItems[currentZone]) gameState.groundItems[currentZone] = [];
+            const gi = gameState.groundItems[currentZone];
+            if (gi.length < MAX_GROUND_ITEMS) gi.push(li);
+            io.to('zone_' + currentZone).emit('item_spawned', { id: li.id, x: li.x, y: li.y, n: li.n, k: li.k });
+          }
+        }
+      }
+      const impact = { x: player.x, y: player.y, color: 0xcccccc };
+      io.to('zone_' + currentZone).emit('melee_swing', impact);
+    } else if (spell.summon || spell.dmg >= 0) {
       addProjectile(id, currentZone, data.spell, player.x, player.y, tx, ty);
     }
 

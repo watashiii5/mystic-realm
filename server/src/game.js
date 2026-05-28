@@ -29,13 +29,14 @@ const SPELLS = {
   meteor: { name: 'Meteor', cost: 30, dmg: 40, desc: 'AoE fire/earth', speed: 150, color: 0xff4400, radius: 12, aoe: true },
   frost_nova: { name: 'Frost Nova', cost: 22, dmg: 15, desc: 'Freeze nearby enemies', speed: 0, color: 0x88ddff, radius: 50, aoe: true, freeze: 2 },
   poison_cloud: { name: 'Poison Cloud', cost: 15, dmg: 12, desc: 'AoE poison DoT', speed: 0, color: 0x66ff66, radius: 40, aoe: true, poison: 6 },
+  slash: { name: 'Slash', cost: 0, dmg: 12, desc: 'A swift sword strike', speed: 0, color: 0xcccccc, radius: 30, aoe: false, melee: true },
 };
 
 const CLASS_STARTING_SPELLS = {
   mage: ['magic_bolt', 'heal'],
   sorcerer: ['fireball'],
   druid: ['heal', 'summon_wolf'],
-  warrior: ['magic_bolt', 'gale'],
+  warrior: ['slash', 'gale'],
   archer: ['magic_bolt', 'ice_shard'],
   summoner: ['magic_bolt', 'heal'],
 };

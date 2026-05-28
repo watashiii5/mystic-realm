@@ -31,6 +31,7 @@ const SPELL_NAMES = {
   ice_shard: 'Ice Shard', stone_wall: 'Stone Wall', gale: 'Gale',
   flame_wave: 'Flame Wave', summon_wolf: 'Summon Wolf', teleport: 'Teleport',
   meteor: 'Meteor', frost_nova: 'Frost Nova', poison_cloud: 'Poison Cloud',
+  slash: 'Slash',
 };
 
 class GameScene extends Phaser.Scene {
@@ -96,6 +97,8 @@ class GameScene extends Phaser.Scene {
     this.castEffects = [];
     this.equipmentAura = null;
     this.lastEquippedHash = '';
+    this.sprintLines = [];
+    this.isSprinting = false;
   }
 
   create() {
@@ -112,6 +115,7 @@ class GameScene extends Phaser.Scene {
       I: this.input.keyboard.addKey('I'),
       F: this.input.keyboard.addKey('F'),
       R: this.input.keyboard.addKey('R'),
+      SHIFT: this.input.keyboard.addKey('SHIFT'),
     };
 
     this.network = new Network();
@@ -211,6 +215,9 @@ class GameScene extends Phaser.Scene {
     }
 
     btn('R', 588, 324, 44, 32, () => { if (this.dead) this.respawn(); });
+
+    this.touchSprint = false;
+    btn('>>', 540, 370, 44, 32, (v) => { this.touchSprint = v; });
   }
 
   setupNetwork() {
@@ -372,6 +379,18 @@ class GameScene extends Phaser.Scene {
       if (data.ty === 'player' && data.ti === self.myId) self.updateHUD();
     });
 
+    self.network.on('melee_swing', (data) => {
+      if (!self.playerSprite) return;
+      const arc = self.add.graphics().setDepth(12);
+      arc.lineStyle(2, 0xcccccc, 0.8);
+      arc.beginPath();
+      arc.arc(self.playerSprite.x, self.playerSprite.y - 4, 18, -1.2, 1.2, false);
+      arc.strokePath();
+      arc.fillStyle(0xffffff, 0.3);
+      arc.fillCircle(self.playerSprite.x, self.playerSprite.y - 4, 6);
+      self.tweens.add({ targets: arc, alpha: 0, duration: 200, onComplete: () => arc.destroy() });
+    });
+
     self.network.on('item_spawned', (data) => {
       self.addGroundItemSprite(data);
     });
@@ -525,6 +544,8 @@ class GameScene extends Phaser.Scene {
     this.hudContainer.add(this.atkDefText);
     this.statPointsText = this.add.text(10, 72, '', { fontSize: '9px', fontFamily: 'monospace', color: '#ffcc00' });
     this.hudContainer.add(this.statPointsText);
+    this.sprintText = this.add.text(140, 72, '', { fontSize: '8px', fontFamily: 'monospace', color: '#88ccff' });
+    this.hudContainer.add(this.sprintText);
 
     this.zoneText = this.add.text(320, 4, 'Meadow', { fontSize: '12px', fontFamily: 'monospace', color: '#88ccff', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
     this.spellBarContainer = this.add.container(0, 0).setDepth(50);
@@ -615,7 +636,7 @@ class GameScene extends Phaser.Scene {
 
   updateSpellBar() {
     if (!this.spellSlots) return;
-    const costs = { magic_bolt: 5, heal: 15, fireball: 12, ice_shard: 10, stone_wall: 20, gale: 8, flame_wave: 18, summon_wolf: 25, teleport: 20, meteor: 30, frost_nova: 22, poison_cloud: 15 };
+    const costs = { magic_bolt: 5, heal: 15, fireball: 12, ice_shard: 10, stone_wall: 20, gale: 8, flame_wave: 18, summon_wolf: 25, teleport: 20, meteor: 30, frost_nova: 22, poison_cloud: 15, slash: 0 };
     for (let i = 0; i < 5; i++) {
       const slot = this.spellSlots[i];
       const spellKey = this.spells[i];
@@ -1279,12 +1300,16 @@ class GameScene extends Phaser.Scene {
 
     const moving = dx !== 0 || dy !== 0;
 
+    const sprinting = (this.keys.SHIFT.isDown || this.touchSprint) && this.myStats.mp > 0;
+    this.isSprinting = sprinting && moving;
+
     if (moving) {
       if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
 
       const dt = delta / 1000;
-      let newX = this.playerSprite.x + dx * SPEED * dt;
-      let newY = this.playerSprite.y + dy * SPEED * dt;
+      const speedMult = sprinting ? 2 : 1;
+      let newX = this.playerSprite.x + dx * SPEED * speedMult * dt;
+      let newY = this.playerSprite.y + dy * SPEED * speedMult * dt;
 
       const margin = 16;
       newX = Phaser.Math.Clamp(newX, margin, COLS * TILE_SIZE - margin);
@@ -1304,12 +1329,33 @@ class GameScene extends Phaser.Scene {
         this.playerSprite.y = newY;
       }
 
-      this.walkFrame += dt * 10;
-      const step = Math.abs(Math.sin(this.walkFrame)) * 0.04;
-      this.playerSprite.setScale(direction === 'left' ? -1 - step : 1 + step, 1 - step * 0.4);
-    } else {
-      this.walkFrame = 0;
       this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
+    } else {
+      this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
+    }
+
+    if (this.isSprinting) {
+      for (let i = this.sprintLines.length - 1; i >= 0; i--) {
+        const sl = this.sprintLines[i];
+        sl.alpha -= delta * 0.003;
+        if (sl.alpha <= 0) { sl.destroy(); this.sprintLines.splice(i, 1); }
+      }
+      if (Math.random() < 0.3) {
+        const offX = direction === 'right' ? -10 : direction === 'left' ? 10 : (Math.random() - 0.5) * 8;
+        const offY = direction === 'up' ? 10 : direction === 'down' ? -10 : (Math.random() - 0.5) * 8;
+        const sl = this.add.text(this.playerSprite.x + offX, this.playerSprite.y + offY, '|', { fontSize: '6px', fontFamily: 'monospace', color: '#88ccff' }).setOrigin(0.5).setDepth(8).setAlpha(0.5);
+        this.sprintLines.push(sl);
+      }
+    } else {
+      for (let i = this.sprintLines.length - 1; i >= 0; i--) {
+        this.sprintLines[i].destroy();
+      }
+      this.sprintLines = [];
+    }
+
+    if (this.sprintText) {
+      this.sprintText.setText(this.isSprinting ? 'SPRINT' : '');
+      this.sprintText.setAlpha(this.isSprinting ? 0.6 + Math.sin(Date.now() * 0.008) * 0.3 : 0);
     }
 
     if (this.equipmentAura && this.playerSprite) {
@@ -1332,6 +1378,7 @@ class GameScene extends Phaser.Scene {
         y: Math.round(this.playerSprite.y),
         direction: direction,
         moving: moving,
+        sprinting: this.isSprinting,
         zone: this.currentZone,
       });
       this.lastMoveSent = time;
@@ -1417,7 +1464,7 @@ class GameScene extends Phaser.Scene {
   }
 
   showTutorial() {
-    this.sendChatMessage('System', 'WASD/Arrows to move | Walk to zone edges to explore new areas', '#88ccff');
+    this.sendChatMessage('System', 'WASD/Arrows to move | Shift to sprint (costs MP)', '#88ccff');
     this.sendChatMessage('System', 'Press 1-5 to select a spell, then CLICK anywhere to cast it at that spot', '#88ff88');
     this.sendChatMessage('System', 'Click monsters to target them | Click items on ground to pick up', '#88ccff');
     this.sendChatMessage('System', 'Press I for inventory (Use/Equip) | Press H for help', '#88ccff');
@@ -1444,6 +1491,7 @@ class GameScene extends Phaser.Scene {
       { text: '', color: '#ffffff', s: 8 },
       { text: '--- CONTROLS ---', color: '#88ccff', s: 12 },
       { text: 'WASD / Arrow Keys : Move', color: '#cccccc', s: 10 },
+      { text: 'Shift : Sprint (costs MP)', color: '#cccccc', s: 10 },
       { text: '1-5 : Select a spell slot', color: '#cccccc', s: 10 },
       { text: 'Click : Cast selected spell at cursor', color: '#cccccc', s: 10 },
       { text: 'Click monster : Target it (track HP)', color: '#cccccc', s: 10 },
