@@ -53,6 +53,8 @@ class GameScene extends Phaser.Scene {
     this.inventoryElements = [];
     this.dead = false;
     this.damageTexts = [];
+    this.progressMonstersKilled = 0;
+    this.zonesVisited = { meadow: true };
     this.levelUpText = null;
     this.levelUpTimer = 0;
   }
@@ -185,19 +187,19 @@ class GameScene extends Phaser.Scene {
       self.removeOtherPlayer(data.id);
     });
 
-    self.network.on('state_update', (data) => {
+    self.network.on('su', (data) => {
       if (!self.myId) return;
-      self.updateOtherPlayers(data.players);
-      self.updateMonsters(data.monsters);
-      self.updateProjectiles(data.projectiles);
-      if (data.groundItems) self.updateGroundItems(data.groundItems);
-      const me = data.players && data.players.find(p => p.id === self.myId);
+      self.updateOtherPlayers(data.p);
+      self.updateMonsters(data.m);
+      self.updateProjectiles(data.pr);
+      if (data.gi) self.updateGroundItems(data.gi);
+      const me = data.p && data.p.find(p => p.id === self.myId);
       if (me) {
-        self.myStats.hp = me.hp;
-        self.myStats.maxHp = me.maxHp;
-        self.myStats.mp = me.mp;
-        self.myStats.maxMp = me.maxMp;
-        self.myStats.level = me.level;
+        self.myStats.hp = me.h;
+        self.myStats.maxHp = me.mh;
+        self.myStats.mp = me.m;
+        self.myStats.maxMp = me.mm;
+        self.myStats.level = me.l;
         self.myStats.xp = me.xp;
         self.updateHUD();
         self.updateXPBar(me.xp);
@@ -214,30 +216,31 @@ class GameScene extends Phaser.Scene {
       self.targetMonster = null;
       self.zoneLabel = data.zoneDef?.name || data.zone;
       if (self.zoneText) self.zoneText.setText(self.zoneLabel);
+      if (data.zoneDef?.lore) self.showZoneLore(data.zoneDef.name || data.zone, data.zoneDef.lore, data.zoneDef.color || '#88ccff');
     });
 
     self.network.on('monster_list', (monsters) => {
       self.clearMonsters();
-      if (monsters) {
-        for (const m of monsters) self.addMonsterSprite(m);
-      }
+      if (monsters) for (const m of monsters) self.addMonsterSprite(m);
     });
 
     self.network.on('monster_died', (data) => {
-      if (data.leveledUp) self.showLevelUp(data.newLevel);
-      const ms = self.monsterSprites[data.monsterId];
+      if (data.lv) self.showLevelUp(data.nl);
+      const ms = self.monsterSprites[data.mid];
       if (ms) {
         this.tweens.add({ targets: [ms.sprite, ms.hpBar, ms.nameText], alpha: 0, duration: 500, onComplete: () => {
-          if (self.monsterSprites[data.monsterId]) {
-            self.monsterSprites[data.monsterId].sprite.destroy();
-            self.monsterSprites[data.monsterId].hpBar.destroy();
-            if (self.monsterSprites[data.monsterId].nameText) self.monsterSprites[data.monsterId].nameText.destroy();
-            delete self.monsterSprites[data.monsterId];
+          if (self.monsterSprites[data.mid]) {
+            self.monsterSprites[data.mid].sprite.destroy();
+            self.monsterSprites[data.mid].hpBar.destroy();
+            if (self.monsterSprites[data.mid].nameText) self.monsterSprites[data.mid].nameText.destroy();
+            delete self.monsterSprites[data.mid];
           }
         }});
       }
       self.showDamageNumber(data.x, data.y, '+' + data.xp + ' XP', '#ffcc00');
-      if (self.hudXpBar) self.updateXPBar(data.xp || self.myStats.xp);
+      if (self.xpBar) self.updateXPBar(data.xpe || self.myStats.xp);
+      self.progressMonstersKilled = data.mk || 0;
+      if (self.progressText) self.updateProgressText();
     });
 
     self.network.on('player_died', (data) => {
@@ -249,15 +252,13 @@ class GameScene extends Phaser.Scene {
     });
 
     self.network.on('combat_event', (data) => {
-      if (data.type === 'damage') {
-        const color = data.targetType === 'player' ? '#ff4444' : '#ffffff';
-        self.showDamageNumber(data.x, data.y, '-' + data.amount, color);
-      } else if (data.type === 'heal') {
-        self.showDamageNumber(data.x, data.y, '+' + data.amount, '#44ff44');
+      if (data.t === 'damage') {
+        const color = data.ty === 'player' ? '#ff4444' : '#ffffff';
+        self.showDamageNumber(data.x, data.y, '-' + data.a, color);
+      } else if (data.t === 'heal') {
+        self.showDamageNumber(data.x, data.y, '+' + data.a, '#44ff44');
       }
-      if (data.targetType === 'player' && data.targetId === self.myId) {
-        self.updateHUD();
-      }
+      if (data.ty === 'player' && data.ti === self.myId) self.updateHUD();
     });
 
     self.network.on('item_spawned', (data) => {
@@ -283,16 +284,22 @@ class GameScene extends Phaser.Scene {
 
     self.network.on('stat_update', (data) => {
       if (data.hp !== undefined) self.myStats.hp = data.hp;
-      if (data.maxHp !== undefined) self.myStats.maxHp = data.maxHp;
+      if (data.mh !== undefined) self.myStats.maxHp = data.mh;
       if (data.mp !== undefined) self.myStats.mp = data.mp;
-      if (data.maxMp !== undefined) self.myStats.maxMp = data.maxMp;
+      if (data.mm !== undefined) self.myStats.maxMp = data.mm;
       if (data.atk !== undefined) self.myStats.atk = data.atk;
       if (data.def !== undefined) self.myStats.def = data.def;
       self.updateHUD();
     });
 
+    self.network.on('progress_update', (data) => {
+      if (data.zonesVisited) self.zonesVisited = data.zonesVisited;
+      if (data.monstersKilled !== undefined) self.progressMonstersKilled = data.monstersKilled;
+      if (self.progressText) self.updateProgressText();
+    });
+
     self.network.on('chat_message', (data) => {
-      self.addChatMessage(data.name, data.text, data.color);
+      self.addChatMessage(data.n || data.name, data.t || data.text, data.c || data.color);
     });
 
     const waitInterval = setInterval(() => {
@@ -367,6 +374,12 @@ class GameScene extends Phaser.Scene {
     this.spellBarContainer = this.add.container(0, 0).setDepth(50);
 
     this.targetInfo = this.add.text(320, 460, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(50);
+
+    this.progressText = this.add.text(320, 16, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
+    this.updateProgressText();
+
+    this.zoneLoreText = null;
+    this.zoneLoreTimer = 0;
 
     this.updateHUD();
   }
@@ -462,9 +475,9 @@ class GameScene extends Phaser.Scene {
 
   addOtherPlayer(id, playerData) {
     if (this.otherPlayers[id]) return;
-    const texKey = 'player_' + (playerData.class || 'mage');
+    const texKey = 'player_' + (playerData.c || playerData.class || 'mage');
     const sprite = this.add.image(playerData.x, playerData.y, texKey).setDepth(10);
-    const nameText = this.add.text(0, -20, playerData.name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    const nameText = this.add.text(0, -20, playerData.n || playerData.name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
     const hpBar = this.add.graphics();
     this.otherPlayers[id] = { sprite, nameText, hpBar };
   }
@@ -491,14 +504,16 @@ class GameScene extends Phaser.Scene {
       if (pObj) {
         pObj.sprite.setPosition(pData.x, pData.y);
         pObj.nameText.setPosition(pData.x, pData.y - 20);
-        pObj.sprite.setAlpha(pData.alive ? 1 : 0.3);
+        pObj.sprite.setAlpha((pData.a !== undefined ? pData.a : pData.alive) ? 1 : 0.3);
         pObj.hpBar.clear();
-        if (pData.hp < pData.maxHp) {
+        const ch = pData.h !== undefined ? pData.h : pData.hp;
+        const cmh = pData.mh !== undefined ? pData.mh : pData.maxHp;
+        if (ch < cmh) {
           const bw = 20;
           pObj.hpBar.fillStyle(0x000000, 0.6);
           pObj.hpBar.fillRect(pData.x - bw/2, pData.y - 24, bw, 3);
           pObj.hpBar.fillStyle(0xcc3333);
-          pObj.hpBar.fillRect(pData.x - bw/2, pData.y - 24, bw * (pData.hp / pData.maxHp), 3);
+          pObj.hpBar.fillRect(pData.x - bw/2, pData.y - 24, bw * (ch / cmh), 3);
         }
         pObj.hpBar.setDepth(11);
       }
@@ -507,15 +522,20 @@ class GameScene extends Phaser.Scene {
 
   addMonsterSprite(m) {
     if (!m || !m.id || this.monsterSprites[m.id]) return;
+    const key = m.k || m.key;
+    const name = m.n || m.name;
+    const color = m.c !== undefined ? m.c : (m.color !== undefined ? m.color : 0xff0000);
+    const boss = m.b !== undefined ? m.b : (m.boss || false);
+    const hp = m.h !== undefined ? m.h : m.hp;
+    const maxHp = m.mh !== undefined ? m.mh : m.maxHp;
     const g = this.add.graphics();
-    const col = m.color || 0xff0000;
-    g.fillStyle(col);
-    if (m.boss) {
+    g.fillStyle(color);
+    if (boss) {
       g.fillCircle(0, 0, 14);
       g.fillStyle(0xffcc00);
       g.lineStyle(2, 0xffcc00);
       g.strokeCircle(0, 0, 16);
-    } else if (m.key === 'sprite' || m.key === 'bat' || m.key === 'phantom') {
+    } else if (key === 'sprite' || key === 'bat' || key === 'phantom') {
       g.fillTriangle(-8, 8, 8, 8, 0, -8);
     } else {
       g.fillCircle(0, 0, 8);
@@ -524,9 +544,9 @@ class GameScene extends Phaser.Scene {
 
     const hpBar = this.add.graphics().setDepth(9);
 
-    const nameText = m.boss ? this.add.text(m.x, m.y - 20, m.name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(9) : null;
+    const nameText = boss ? this.add.text(m.x, m.y - 20, name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(9) : null;
 
-    const clickZone = this.add.zone(m.x, m.y, m.boss ? 40 : 24, m.boss ? 40 : 24).setInteractive().setDepth(8);
+    const clickZone = this.add.zone(m.x, m.y, boss ? 40 : 24, boss ? 40 : 24).setInteractive().setDepth(8);
     const mid = m.id;
     clickZone.on('pointerdown', () => {
       this.targetMonster = mid;
@@ -534,8 +554,8 @@ class GameScene extends Phaser.Scene {
       this.updateSpellBar();
     });
 
-    this.monsterSprites[m.id] = { sprite: g, hpBar, nameText, clickZone, boss: m.boss || false, maxHp: m.maxHp };
-    this.updateMonsterHP(m.id, m.hp, m.maxHp);
+    this.monsterSprites[m.id] = { sprite: g, hpBar, nameText, clickZone, boss, maxHp };
+    this.updateMonsterHP(m.id, hp, maxHp);
   }
 
   updateMonsters(monsters) {
@@ -549,18 +569,23 @@ class GameScene extends Phaser.Scene {
         ms = this.monsterSprites[m.id];
       }
       if (ms) {
+        const alive = m.a !== undefined ? m.a : m.alive;
+        const hp = m.h !== undefined ? m.h : m.hp;
+        const maxHp = m.mh !== undefined ? m.mh : m.maxHp;
+        const name = m.n || m.name || '';
+        const boss = m.b !== undefined ? m.b : (m.boss || false);
         ms.sprite.setPosition(m.x, m.y);
-        ms.sprite.setAlpha(m.alive ? 1 : 0);
+        ms.sprite.setAlpha(alive ? 1 : 0);
         if (ms.nameText) ms.nameText.setPosition(m.x, m.y - 20);
         if (ms.clickZone) ms.clickZone.setPosition(m.x, m.y);
-        if (!m.alive) {
+        if (!alive) {
           if (ms.nameText) ms.nameText.setAlpha(0);
           continue;
         }
-        this.updateMonsterHP(m.id, m.hp, m.maxHp, m.boss || false);
+        this.updateMonsterHP(m.id, hp, maxHp);
         if (this.targetMonster === m.id) {
-          const pct = Math.floor((m.hp / m.maxHp) * 100);
-          this.targetInfo.setText(m.name + ' - HP: ' + m.hp + '/' + m.maxHp + ' (' + pct + '%)');
+          const pct = Math.floor((hp / maxHp) * 100);
+          this.targetInfo.setText(name + ' - HP: ' + hp + '/' + maxHp + ' (' + pct + '%)');
         }
       }
     }
@@ -647,8 +672,15 @@ class GameScene extends Phaser.Scene {
   addGroundItemSprite(item) {
     if (this.groundItemSprites[item.id]) return;
     const g = this.add.graphics().setDepth(5);
-    const gems = { health_pot: 0xff4444, mana_pot: 0x4444ff, starter_robe: 0x886644, wooden_staff: 0x886644, starter_ring: 0xffcc00, forest_staff: 0x44aa44, leaf_cloak: 0x44aa66, vine_ring: 0x44aa44, crystal_staff: 0xaa66ff, crystal_robe: 0x8866cc, crystal_ring: 0xaa66ff, ancient_staff: 0xff8800, ancient_robe: 0xcc6600, soul_ring: 0xff4444, legendary_staff: 0xffcc00, legendary_robe: 0xffcc88, boss_ring: 0xffaa00 };
-    const col = item.name && item.name.includes('Potion') ? (item.name.includes('Health') ? 0xff4444 : 0x4444ff) : 0xffcc00;
+    const iname = (item.n || item.name || '').toLowerCase();
+    let col = 0xffcc00;
+    if (iname.includes('health') || item.k === 'health_pot') col = 0xff4444;
+    else if (iname.includes('mana') || item.k === 'mana_pot') col = 0x4444ff;
+    else if (iname.includes('forest')) col = 0x44aa44;
+    else if (iname.includes('crystal')) col = 0xaa66ff;
+    else if (iname.includes('ancient')) col = 0xff8800;
+    else if (iname.includes('legendary') || iname.includes('aether')) col = 0xffcc00;
+    else if (iname.includes('scroll')) col = 0x88ddff;
     g.fillStyle(col);
     g.fillCircle(0, 0, 4);
     g.fillStyle(0xffffff, 0.5);
@@ -892,6 +924,36 @@ class GameScene extends Phaser.Scene {
         this.targetInfo.setPosition(ms.sprite.x, ms.sprite.y + 24);
       }
     }
+  }
+
+  updateProgressText() {
+    if (!this.progressText) return;
+    const zonesFound = Object.keys(this.zonesVisited || { meadow: true }).length;
+    const totalZones = 5;
+    this.progressText.setText('Zones: ' + zonesFound + '/' + totalZones + '  |  Monsters Killed: ' + (this.progressMonstersKilled || 0));
+  }
+
+  showZoneLore(zoneName, lore, color) {
+    if (this.zoneLoreText) this.zoneLoreText.destroy();
+    const lines = zoneName + '\n' + lore;
+    this.zoneLoreText = this.add.text(320, 180, lines, {
+      fontSize: '11px',
+      fontFamily: 'monospace',
+      color: color || '#88ccff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center',
+      lineSpacing: 4,
+    }).setOrigin(0.5).setDepth(60).setAlpha(0);
+
+    this.tweens.add({
+      targets: this.zoneLoreText,
+      alpha: 1,
+      duration: 500,
+      yoyo: true,
+      hold: 4000,
+      onComplete: () => { if (this.zoneLoreText) { this.zoneLoreText.destroy(); this.zoneLoreText = null; } }
+    });
   }
 
   showTutorial() {

@@ -1,7 +1,7 @@
 const CHAR_CLASSES = [
-  { key: 'mage', name: 'Mage', texture: 'player_mage', desc: 'Balanced spellcaster' },
-  { key: 'sorcerer', name: 'Sorcerer', texture: 'player_sorcerer', desc: 'Glass cannon' },
-  { key: 'druid', name: 'Druid', texture: 'player_druid', desc: 'Nature support' },
+  { key: 'mage', name: 'Mage', texture: 'player_mage', desc: 'Balanced spellcaster with healing', stats: 'HP:80 MP:100 ATK:12 DEF:8', spells: 'Magic Bolt + Heal' },
+  { key: 'sorcerer', name: 'Sorcerer', texture: 'player_sorcerer', desc: 'Glass cannon — highest damage', stats: 'HP:60 MP:120 ATK:18 DEF:5', spells: 'Fireball' },
+  { key: 'druid', name: 'Druid', texture: 'player_druid', desc: 'Nature warrior — tanky support', stats: 'HP:100 MP:80 ATK:8 DEF:12', spells: 'Heal + Summon Wolf' },
 ];
 
 class CharCreateScene extends Phaser.Scene {
@@ -44,13 +44,27 @@ class CharCreateScene extends Phaser.Scene {
       color: '#aaaacc',
     }).setOrigin(0.5);
 
-    this.add.text(cx, 370, '\u2190 \u2192  Switch Class     ENTER  Join Game', {
+    this.classStatsText = this.add.text(cx, 330, '', {
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      color: '#88ff88',
+    }).setOrigin(0.5);
+
+    this.classSpellsText = this.add.text(cx, 348, '', {
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      color: '#88ccff',
+    }).setOrigin(0.5);
+
+    this.updateClassDisplay(0);
+
+    this.add.text(cx, 380, '\u2190 \u2192 Switch Class     ENTER Join Game', {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#666688',
     }).setOrigin(0.5);
 
-    this.add.text(cx, 400, 'Type your name, then press ENTER', {
+    this.add.text(cx, 410, 'Type your name, then press ENTER', {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#666688',
@@ -70,19 +84,13 @@ class CharCreateScene extends Phaser.Scene {
 
       if (event.key === 'ArrowLeft') {
         this.selectedClass = (this.selectedClass - 1 + CHAR_CLASSES.length) % CHAR_CLASSES.length;
-        const cls = CHAR_CLASSES[this.selectedClass];
-        this.classPreview.setTexture(cls.texture);
-        this.classNameText.setText(cls.name);
-        this.classDescText.setText(cls.desc);
+        this.updateClassDisplay(this.selectedClass);
         return;
       }
 
       if (event.key === 'ArrowRight') {
         this.selectedClass = (this.selectedClass + 1) % CHAR_CLASSES.length;
-        const cls = CHAR_CLASSES[this.selectedClass];
-        this.classPreview.setTexture(cls.texture);
-        this.classNameText.setText(cls.name);
-        this.classDescText.setText(cls.desc);
+        this.updateClassDisplay(this.selectedClass);
         return;
       }
 
@@ -91,6 +99,15 @@ class CharCreateScene extends Phaser.Scene {
         this.nameText.setText('Name: ' + this.playerName + '_');
       }
     });
+  }
+
+  updateClassDisplay(idx) {
+    const cls = CHAR_CLASSES[idx];
+    this.classPreview.setTexture(cls.texture);
+    this.classNameText.setText(cls.name);
+    this.classDescText.setText(cls.desc);
+    this.classStatsText.setText(cls.stats);
+    this.classSpellsText.setText('Spells: ' + cls.spells);
   }
 
   joinGame() {

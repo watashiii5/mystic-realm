@@ -33,28 +33,37 @@ const CLASS_STARTING_SPELLS = {
 
 const ZONE_MAPS = {};
 
+const ZONE_ORDER = ['meadow', 'forest', 'caves', 'ruins', 'tower'];
+const ZONE_LORE = {
+  meadow: 'The Meadow — a peaceful starting ground. Perfect for new mages to test their spells on harmless slimes and sprites.',
+  forest: 'The Whispering Forest — ancient trees murmur secrets. Darker creatures lurk here, drawn to the magic in the air.',
+  caves: 'The Crystal Caves — glowing minerals illuminate winding tunnels. Something ancient stirs in the deep.',
+  ruins: 'The Sunken Ruins — remnants of a fallen mage civilization. The air crackles with residual arcane energy.',
+  tower: 'The Spire of Aether — a twisted tower reaching into the void. The Aether Lord awaits at the summit.',
+};
+
 const ZONE_DEFS = {
-  meadow: { name: 'Meadow', levels: '1-5', edgeMap: { right: 'forest' }, monsters: ['slime', 'rabbit', 'sprite'] },
-  forest: { name: 'Forest', levels: '5-10', edgeMap: { left: 'meadow', down: 'caves' }, monsters: ['wolf', 'treant', 'spider'] },
-  caves: { name: 'Caves', levels: '10-15', edgeMap: { up: 'forest', right: 'ruins' }, monsters: ['bat', 'skeleton', 'crystal'] },
-  ruins: { name: 'Ruins', levels: '15-20', edgeMap: { left: 'caves', down: 'tower' }, monsters: ['golem', 'phantom', 'wraith'] },
-  tower: { name: 'Tower', levels: '20+', edgeMap: { up: 'ruins' }, monsters: ['mage', 'elemental', 'boss'] },
+  meadow: { name: 'Meadow', levels: '1-5', color: '#88ff88', lore: ZONE_LORE.meadow, edgeMap: { right: 'forest' }, monsters: ['slime', 'rabbit', 'sprite'] },
+  forest: { name: 'Forest', levels: '5-10', color: '#88cc44', lore: ZONE_LORE.forest, edgeMap: { left: 'meadow', down: 'caves' }, monsters: ['wolf', 'treant', 'spider'] },
+  caves: { name: 'Caves', levels: '10-15', color: '#cc8844', lore: ZONE_LORE.caves, edgeMap: { up: 'forest', right: 'ruins' }, monsters: ['bat', 'skeleton', 'crystal'] },
+  ruins: { name: 'Ruins', levels: '15-20', color: '#aa66ff', lore: ZONE_LORE.ruins, edgeMap: { left: 'caves', down: 'tower' }, monsters: ['golem', 'phantom', 'wraith'] },
+  tower: { name: 'Tower', levels: '20+', color: '#ff6600', lore: ZONE_LORE.tower, edgeMap: { up: 'ruins' }, monsters: ['mage', 'elemental', 'boss'] },
 };
 
 const MONSTERS = {
-  slime: { name: 'Slime', hp: 20, atk: 3, def: 1, xp: 10, speed: 30, aggro: 100, color: 0x44cc44, texture: null },
-  rabbit: { name: 'Rabbit', hp: 15, atk: 4, def: 0, xp: 12, speed: 50, aggro: 80, color: 0xcc8844, texture: null },
-  sprite: { name: 'Sprite', hp: 12, atk: 6, def: 0, xp: 15, speed: 40, aggro: 120, color: 0x88ddff, texture: null, ranged: true },
-  wolf: { name: 'Wolf', hp: 35, atk: 8, def: 2, xp: 20, speed: 55, aggro: 160, color: 0x886644, texture: null },
-  treant: { name: 'Treant', hp: 60, atk: 6, def: 5, xp: 25, speed: 20, aggro: 100, color: 0x44aa22, texture: null },
-  spider: { name: 'Spider', hp: 25, atk: 10, def: 1, xp: 22, speed: 45, aggro: 130, color: 0x884422, texture: null, poison: 3 },
-  bat: { name: 'Bat', hp: 18, atk: 5, def: 0, xp: 18, speed: 60, aggro: 90, color: 0x664466, texture: null },
-  skeleton: { name: 'Skeleton', hp: 40, atk: 10, def: 4, xp: 28, speed: 35, aggro: 140, color: 0xcccccc, texture: null },
-  crystal: { name: 'Crystal', hp: 30, atk: 14, def: 3, xp: 30, speed: 25, aggro: 150, color: 0xaa66ff, texture: null, ranged: true },
-  golem: { name: 'Golem', hp: 80, atk: 12, def: 10, xp: 40, speed: 20, aggro: 120, color: 0x888866, texture: null },
-  phantom: { name: 'Phantom', hp: 35, atk: 16, def: 2, xp: 45, speed: 50, aggro: 180, color: 0xccccff, texture: null, teleport: true },
-  wraith: { name: 'Wraith', hp: 45, atk: 14, def: 3, xp: 42, speed: 40, aggro: 160, color: 0x664488, texture: null, lifedrain: 5 },
-  boss: { name: 'Aether Lord', hp: 300, atk: 25, def: 8, xp: 200, speed: 30, aggro: 250, color: 0xffcc00, texture: null, boss: true, ranged: true, teleport: true },
+  slime: { name: 'Slime', desc: 'A bouncy blob of harmless ooze.', hp: 20, atk: 3, def: 1, xp: 10, speed: 30, aggro: 100, color: 0x44cc44 },
+  rabbit: { name: 'Rabbit', desc: 'A feisty magical rabbit with a mean kick.', hp: 15, atk: 4, def: 0, xp: 12, speed: 50, aggro: 80, color: 0xcc8844 },
+  sprite: { name: 'Sprite', desc: 'A mischievous light spirit that shoots magic.', hp: 12, atk: 6, def: 0, xp: 15, speed: 40, aggro: 120, color: 0x88ddff, ranged: true },
+  wolf: { name: 'Wolf', desc: 'A pack hunter with sharp instincts.', hp: 35, atk: 8, def: 2, xp: 20, speed: 55, aggro: 160, color: 0x886644 },
+  treant: { name: 'Treant', desc: 'An ancient awakened tree. Slow but tough.', hp: 60, atk: 6, def: 5, xp: 25, speed: 20, aggro: 100, color: 0x44aa22 },
+  spider: { name: 'Spider', desc: 'A venomous cave spinner.', hp: 25, atk: 10, def: 1, xp: 22, speed: 45, aggro: 130, color: 0x884422, poison: 3 },
+  bat: { name: 'Bat', desc: 'A cave bat disturbed by your presence.', hp: 18, atk: 5, def: 0, xp: 18, speed: 60, aggro: 90, color: 0x664466 },
+  skeleton: { name: 'Skeleton', desc: 'Animated bones of a fallen mage.', hp: 40, atk: 10, def: 4, xp: 28, speed: 35, aggro: 140, color: 0xcccccc },
+  crystal: { name: 'Crystal', desc: 'A floating crystal that fires energy beams.', hp: 30, atk: 14, def: 3, xp: 30, speed: 25, aggro: 150, color: 0xaa66ff, ranged: true },
+  golem: { name: 'Golem', desc: 'A guardian made of stone and rage.', hp: 80, atk: 12, def: 10, xp: 40, speed: 20, aggro: 120, color: 0x888866 },
+  phantom: { name: 'Phantom', desc: 'A ghostly apparition that phases through reality.', hp: 35, atk: 16, def: 2, xp: 45, speed: 50, aggro: 180, color: 0xccccff, teleport: true },
+  wraith: { name: 'Wraith', desc: 'A soul-draining undead horror.', hp: 45, atk: 14, def: 3, xp: 42, speed: 40, aggro: 160, color: 0x664488, lifedrain: 5 },
+  boss: { name: 'Aether Lord', desc: 'THE FINAL BOSS. A fallen archmage corrupted by void energy.', hp: 300, atk: 25, def: 8, xp: 200, speed: 30, aggro: 250, color: 0xffcc00, boss: true, ranged: true, teleport: true },
 };
 
 function buildZoneMap(zone) {
