@@ -58,28 +58,130 @@ class MenuScene extends Phaser.Scene {
       alpha: 1, duration: 600, delay: 500,
     });
 
-    const blink = this.add.text(cx, cy + 80, 'Press any key or click to begin', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
-    }).setOrigin(0.5).setAlpha(0);
+    this._createButton(cx, cy + 80, 'NEW GAME', 0x44aa44, () => {
+      window.soundManager.playMenuSelect();
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.time.delayedCall(300, () => this.scene.start('CharCreateScene'));
+    });
 
-    this.tweens.add({
-      targets: blink, alpha: 1, duration: 400, delay: 1000,
-      onComplete: () => {
-        this.tweens.add({ targets: blink, alpha: 0.2, duration: 800, yoyo: true, repeat: -1 });
-      },
+    this._createButton(cx, cy + 115, 'SETTINGS', 0x444488, () => {
+      window.soundManager.playMenuSelect();
+      this.settingsPanel = this.settingsPanel || new SettingsPanel(this);
+      this.settingsPanel.show();
+    });
+
+    this._createButton(cx, cy + 150, 'CREDITS', 0x446644, () => {
+      window.soundManager.playMenuSelect();
+      this._showCredits();
     });
 
     const ver = this.add.text(630, 470, 'v1.0', {
       fontSize: '9px', fontFamily: 'monospace', color: '#333344',
     }).setOrigin(1, 1);
 
-    const startGame = () => {
+    this.input.keyboard.on('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        if (this.settingsPanel && this.settingsPanel.visible) return;
+        window.soundManager.playMenuSelect();
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.time.delayedCall(300, () => this.scene.start('CharCreateScene'));
+      }
+      if (event.key === 'Escape') {
+        if (this.settingsPanel && this.settingsPanel.visible) {
+          this.settingsPanel.hide();
+        }
+      }
+    });
+
+    this.input.on('pointerdown', () => {
+      if (this.settingsPanel && this.settingsPanel.visible) return;
+      window.soundManager.playMenuSelect();
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.time.delayedCall(300, () => this.scene.start('CharCreateScene'));
-    };
+    });
+  }
 
-    this.input.keyboard.on('keydown', startGame);
-    this.input.on('pointerdown', startGame);
+  _createButton(x, y, text, color, onClick) {
+    const w = 180;
+    const h = 26;
+    const bg = this.add.graphics().setDepth(5).setAlpha(0);
+    const hoverBg = this.add.graphics().setDepth(4).setAlpha(0);
+    const label = this.add.text(x, y, text, {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(6).setAlpha(0);
+
+    const zone = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true }).setDepth(7).setAlpha(0);
+
+    zone.on('pointerover', () => {
+      window.soundManager.playMenuHover();
+      this.tweens.add({ targets: [bg, label], alpha: 1, duration: 100 });
+      hoverBg.clear();
+      hoverBg.fillStyle(color, 0.3);
+      hoverBg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+      this.tweens.add({ targets: hoverBg, alpha: 0.5, duration: 100 });
+    });
+
+    zone.on('pointerout', () => {
+      if (bg.alpha < 0.9) {
+        this.tweens.add({ targets: [bg, label], alpha: 0.3, duration: 100 });
+      }
+      this.tweens.add({ targets: hoverBg, alpha: 0, duration: 100 });
+    });
+
+    zone.on('pointerdown', onClick);
+
+    this.tweens.add({
+      targets: [bg, label],
+      alpha: 0.3, duration: 400, delay: 800 + (y - 240) * 2,
+    });
+    bg.fillStyle(color, 0.2);
+    bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+
+    return { bg, label, zone, hoverBg };
+  }
+
+  _showCredits() {
+    const cx = 320;
+    const cy = 240;
+    if (this._creditsBg) return;
+
+    const bg = this.add.rectangle(cx, cy, 280, 180, 0x111122, 0.92).setDepth(300).setOrigin(0.5).setAlpha(0);
+    const border = this.add.graphics().setDepth(301).setAlpha(0);
+    border.lineStyle(2, 0x446644);
+    border.strokeRect(cx - 138, cy - 88, 276, 176);
+
+    const lines = [
+      'MYSTIC REALM',
+      '',
+      'Created by Anon',
+      '',
+      'Powered by Phaser 3 & Socket.IO',
+      '',
+      'Thanks for playing!',
+    ];
+    const text = this.add.text(cx, cy - 60, lines.join('\n'), {
+      fontSize: '12px', fontFamily: 'monospace', color: '#aaaacc',
+      align: 'center', lineSpacing: 4,
+    }).setOrigin(0.5).setDepth(302).setAlpha(0);
+
+    const closeBg = this.add.graphics().setDepth(302).setAlpha(0);
+    closeBg.fillStyle(0x446644);
+    closeBg.fillRoundedRect(cx - 40, cy + 65, 80, 24, 6);
+    const closeText = this.add.text(cx, cy + 77, 'CLOSE', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(303).setAlpha(0);
+    const closeZone = this.add.zone(cx, cy + 77, 80, 24).setInteractive().setDepth(304).setAlpha(0);
+    closeZone.on('pointerdown', () => {
+      window.soundManager.playMenuSelect();
+      this.tweens.add({ targets: [bg, border, text, closeBg, closeText, closeZone], alpha: 0, duration: 150, onComplete: () => {
+        bg.destroy(); border.destroy(); text.destroy(); closeBg.destroy(); closeText.destroy(); closeZone.destroy();
+        this._creditsBg = null;
+      } });
+    });
+    closeZone.on('pointerover', () => window.soundManager.playMenuHover());
+
+    this.tweens.add({ targets: [bg, border, text, closeBg, closeText, closeZone], alpha: 1, duration: 200 });
+    this._creditsBg = bg;
   }
 
   update(time, delta) {

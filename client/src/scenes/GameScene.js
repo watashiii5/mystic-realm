@@ -108,6 +108,8 @@ class GameScene extends Phaser.Scene {
     this.lastEquippedHash = '';
     this.sprintLines = [];
     this.isSprinting = false;
+    this.walkSoundTimer = 0;
+    this.settingsPanel = null;
   }
 
   create() {
@@ -164,6 +166,12 @@ class GameScene extends Phaser.Scene {
         return;
       }
 
+      if (event.key === 'Escape') {
+        if (this.settingsPanel) { this.settingsPanel.toggle(); }
+        event.stopPropagation();
+        return;
+      }
+
       if (event.key === 'Enter') {
         this.isChatting = true;
         this.chatInput = '';
@@ -184,6 +192,7 @@ class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer) => {
       if (this.isChatting || this.showingInventory) return;
       if (this.selectedSpell) {
+        window.soundManager.playCastSpell();
         this.network.emit('cast_spell', {
           spell: this.selectedSpell,
           toX: Math.round(pointer.x),
@@ -196,6 +205,7 @@ class GameScene extends Phaser.Scene {
       }
     });
 
+    this.settingsPanel = new SettingsPanel(this);
     this.createVirtualControls();
   }
 
@@ -324,6 +334,8 @@ class GameScene extends Phaser.Scene {
     self.network.on('monster_died', (data) => {
       if (data.lv) self.showLevelUp(data.nl);
       const isBoss = data.boss;
+      if (isBoss) window.soundManager.playBossRoar();
+      else window.soundManager.playMonsterDeath();
       const ms = self.monsterSprites[data.mid];
       if (ms) {
         const pCount = isBoss ? 14 : 7;
@@ -359,6 +371,7 @@ class GameScene extends Phaser.Scene {
     self.network.on('player_died', (data) => {
       if (data.id === self.myId) {
         self.dead = true;
+        window.soundManager.playDeath();
         if (self.playerSprite) {
           self.playerSprite.setAlpha(0.3);
           self.playerSprite.setTint(0xff4444);
@@ -385,6 +398,7 @@ class GameScene extends Phaser.Scene {
         self.showDamageNumber(data.x, data.y, '-' + data.a, color);
         if (data.ty === 'player' && data.ti === self.myId) {
           self.cameras.main.shake(100, 0.005);
+          window.soundManager.playHit();
           if (self.playerSprite) {
             self.playerSprite.setTint(0xff4444);
             self.time.delayedCall(150, () => { if (self.playerSprite && !self.dead) self.playerSprite.clearTint(); });
@@ -406,6 +420,7 @@ class GameScene extends Phaser.Scene {
         }
       } else if (data.t === 'heal') {
         self.showDamageNumber(data.x, data.y, '+' + data.a, '#44ff44');
+        window.soundManager.playHeal();
         if (self.playerSprite) {
           self.playerSprite.setTint(0x44ff44);
           self.time.delayedCall(200, () => { if (self.playerSprite && !self.dead) self.playerSprite.clearTint(); });
@@ -422,6 +437,7 @@ class GameScene extends Phaser.Scene {
 
     self.network.on('melee_swing', (data) => {
       if (!self.playerSprite) return;
+      window.soundManager.playHit();
       const arc = self.add.graphics().setDepth(12);
       arc.lineStyle(2, 0xcccccc, 0.8);
       arc.beginPath();
@@ -437,6 +453,7 @@ class GameScene extends Phaser.Scene {
     });
 
     self.network.on('item_removed', (data) => {
+      window.soundManager.playItemPickup();
       const gs = self.groundItemSprites[data.itemId];
       if (gs) {
         if (self.playerSprite && !self.dead) {
@@ -481,6 +498,7 @@ class GameScene extends Phaser.Scene {
     });
 
     self.network.on('chat_message', (data) => {
+      if (data.n !== 'System') window.soundManager.playChatMessage();
       self.addChatMessage(data.n || data.name, data.t || data.text, data.c || data.color);
     });
 
@@ -781,6 +799,7 @@ class GameScene extends Phaser.Scene {
     const color = m.c !== undefined ? m.c : (m.color !== undefined ? m.color : 0xff0000);
     const boss = m.b !== undefined ? m.b : (m.boss || false);
     const hp = m.h !== undefined ? m.h : m.hp;
+    if (boss) window.soundManager.playBossRoar();
     const maxHp = m.mh !== undefined ? m.mh : m.maxHp;
     const g = this.add.graphics();
     this.drawMonsterShape(g, key, color, boss);
@@ -1150,6 +1169,7 @@ class GameScene extends Phaser.Scene {
   }
 
   showLevelUp(level) {
+    window.soundManager.playLevelUp();
     this.addChatMessage('System', 'LEVEL UP! You are now level ' + level + '!', '#ffcc00');
     this.cameras.main.shake(300, 0.01);
     this.cameras.main.flash(500, 255, 255, 200);
@@ -1461,6 +1481,12 @@ class GameScene extends Phaser.Scene {
       this.walkCycle += delta * (sprinting ? 0.012 : 0.008);
       this.walkBob = Math.sin(this.walkCycle) * 2;
       this.playerSprite.y += this.walkBob;
+
+      this.walkSoundTimer -= delta;
+      if (this.walkSoundTimer <= 0) {
+        window.soundManager.playWalk();
+        this.walkSoundTimer = sprinting ? 250 : 380;
+      }
     } else {
       this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
       this.walkBob = 0;
