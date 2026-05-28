@@ -107,6 +107,9 @@ class GameScene extends Phaser.Scene {
           }
           this.isChatting = false;
           this.hideChatInput();
+        } else if (event.key === 'Escape') {
+          this.isChatting = false;
+          this.hideChatInput();
         } else if (event.key === 'Backspace') {
           this.chatInput = this.chatInput.slice(0, -1);
           this.updateChatInput();
@@ -942,16 +945,28 @@ class GameScene extends Phaser.Scene {
 
   showChatInput() {
     this.chatInputBg = this.add.graphics().setDepth(200);
-    this.chatInputBg.fillStyle(0x000000, 0.8);
+    this.chatInputBg.fillStyle(0x000000, 0.85);
+    this.chatInputBg.fillRect(4, 396, 480, 62);
+    this.chatInputBg.lineStyle(1, 0x88ccff, 0.3);
+    this.chatInputBg.strokeRect(4, 396, 480, 62);
+    this.chatInputBg.fillStyle(0x88ccff, 0.1);
     this.chatInputBg.fillRect(4, 430, 480, 26);
-    this.chatInputText = this.add.text(10, 434, '> ' + this.chatInput + '_', { fontSize: '12px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(200);
+    this.chatInputBg.setAlpha(0);
+    this.tweens.add({ targets: this.chatInputBg, alpha: 1, duration: 150 });
+    this.chatInputText = this.add.text(10, 434, '> ' + this.chatInput + '_', { fontSize: '13px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(200);
+    this.chatInputText.setAlpha(0);
+    this.tweens.add({ targets: this.chatInputText, alpha: 1, duration: 150 });
+    const hint = this.add.text(10, 402, 'Enter to send | Esc to cancel', { fontSize: '9px', fontFamily: 'monospace', color: '#666666' }).setDepth(200);
+    this.chatInputHint = hint;
   }
 
   hideChatInput() {
     if (this.chatInputBg) this.chatInputBg.destroy();
     if (this.chatInputText) this.chatInputText.destroy();
+    if (this.chatInputHint) this.chatInputHint.destroy();
     this.chatInputBg = null;
     this.chatInputText = null;
+    this.chatInputHint = null;
   }
 
   updateChatInput() {
@@ -961,11 +976,11 @@ class GameScene extends Phaser.Scene {
   }
 
   addChatMessage(name, text, color) {
-    const maxMsg = 5;
+    const maxMsg = 6;
     const isSys = name === 'System';
     const displayName = isSys ? '' : (name.length > 12 ? name.slice(0, 12) + '..' : name + ':');
     const displayText = text.length > 60 ? text.slice(0, 60) + '..' : text;
-    const entry = { text: isSys ? displayText : displayName + ' ' + displayText, time: Date.now(), sys: isSys, color: color || (isSys ? '#88ccff' : '#cccccc'), y: 445 };
+    const entry = { text: isSys ? '> ' + displayText : displayName + ' ' + displayText, time: Date.now(), sys: isSys, color: color || (isSys ? '#88ccff' : '#cccccc'), y: 430, alpha: 1 };
     this.chatMessages.push(entry);
     while (this.chatMessages.length > maxMsg) this.chatMessages.shift();
     this.renderChatHistory();
@@ -974,20 +989,35 @@ class GameScene extends Phaser.Scene {
   renderChatHistory() {
     const now = Date.now();
     const chatW = 480;
+    const baseY = 370;
+    const lineH = 15;
+
+    let visCount = 0;
+    for (let i = 0; i < this.chatMessages.length; i++) {
+      const msg = this.chatMessages[i];
+      if (msg.sys) {
+        const elapsed = now - msg.time;
+        if (elapsed > 10000) msg.alpha = Math.max(0, 1 - (elapsed - 10000) / 2000);
+      }
+      if (msg.alpha > 0) visCount++;
+    }
+
     if (!this.chatBg) {
       this.chatBg = this.add.graphics().setDepth(149);
     }
     this.chatBg.clear();
-    this.chatBg.fillStyle(0x000000, 0.5);
-    this.chatBg.fillRect(4, 368, chatW, 60);
-    this.chatBg.fillStyle(0xffffff, 0.05);
-    this.chatBg.fillRect(4, 368, chatW, 1);
+    if (visCount > 0) {
+      const bgH = Math.min(visCount, 6) * lineH + 8;
+      this.chatBg.fillStyle(0x000000, 0.45);
+      this.chatBg.fillRect(4, baseY - 4, chatW, bgH);
+      this.chatBg.fillStyle(0xffffff, 0.06);
+      this.chatBg.fillRect(4, baseY - 4, chatW, 1);
+    }
 
     let idx = 0;
     for (let i = 0; i < this.chatMessages.length; i++) {
       const msg = this.chatMessages[i];
-      if (msg.sys && now - msg.time > 10000) { msg.alpha = Math.max(0, 1 - (now - msg.time - 8000) / 2000); }
-      if (msg.alpha !== undefined && msg.alpha <= 0) continue;
+      if (msg.alpha <= 0) continue;
 
       let t = this.chatPool[idx];
       if (!t) {
@@ -995,15 +1025,14 @@ class GameScene extends Phaser.Scene {
         this.chatPool.push(t);
       }
 
-      if (msg.y === undefined) msg.y = 428;
-      if (msg.y > 370 + idx * 15) {
-        msg.y -= 1.5;
-      }
+      const targetY = baseY + idx * lineH;
+      if (msg.y === undefined) msg.y = 430;
+      if (msg.y > targetY) msg.y = Math.max(targetY, msg.y - 2.5);
 
       t.setText(msg.text);
       t.setPosition(10, msg.y);
       t.setStyle({ color: msg.color, stroke: '#000000', strokeThickness: 2 });
-      t.setAlpha(msg.alpha !== undefined ? msg.alpha : 1);
+      t.setAlpha(msg.alpha);
       t.setVisible(true);
       idx++;
     }
