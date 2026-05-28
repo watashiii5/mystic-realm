@@ -9,6 +9,7 @@ class Minimap {
     this.playerDot = null;
     this.monsterDots = [];
     this.otherPlayerDots = [];
+    this._explored = null;
     this._build(mapData);
   }
 
@@ -16,6 +17,8 @@ class Minimap {
     const s = this.scene;
     this.bg = s.add.graphics().setDepth(60).setAlpha(0.7);
     this._drawBg(mapData);
+
+    this.fog = s.add.graphics().setDepth(60).setAlpha(0.6);
 
     this.border = s.add.graphics().setDepth(61).setAlpha(0.6);
     this.border.lineStyle(1, 0x88ccff, 0.6);
@@ -35,6 +38,10 @@ class Minimap {
     const cols = mapData[0] ? mapData[0].length : 20;
     const rows = mapData.length || 15;
     const ts = this.tileSize;
+    if (!this._explored) {
+      this._explored = [];
+      for (let y = 0; y < rows; y++) { this._explored[y] = []; for (let x = 0; x < cols; x++) this._explored[y][x] = false; }
+    }
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const tile = mapData[y]?.[x] ?? 0;
@@ -48,6 +55,32 @@ class Minimap {
     }
   }
 
+  _drawFog(px, py) {
+    this.fog.clear();
+    if (!this._explored) return;
+    const ts = this.tileSize;
+    const rows = this._explored.length;
+    const cols = this._explored[0] ? this._explored[0].length : 20;
+    const visTileX = Math.round(px / 32);
+    const visTileY = Math.round(py / 32);
+    const viewDist = 4;
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const dx = x - visTileX, dy = y - visTileY;
+        const dsq = dx * dx + dy * dy;
+        if (dsq <= viewDist * viewDist) this._explored[y][x] = true;
+        if (!this._explored[y][x]) {
+          this.fog.fillStyle(0x000000, 0.7);
+          this.fog.fillRect(this.x + x * ts, this.y + y * ts, ts, ts);
+        } else if (dsq > viewDist * viewDist + 2) {
+          this.fog.fillStyle(0x000000, 0.25);
+          this.fog.fillRect(this.x + x * ts, this.y + y * ts, ts, ts);
+        }
+      }
+    }
+  }
+
   update(playerX, playerY, monsters, otherPlayers) {
     if (!this.playerDot || !this.bg.alpha) return;
     const mx = 640, my = 480;
@@ -56,10 +89,15 @@ class Minimap {
       this.y + (playerY / my) * this.height
     );
 
+    this._drawFog(playerX, playerY);
+
     for (const d of this.monsterDots) d.destroy();
     this.monsterDots = [];
     if (monsters) {
       for (const m of monsters) {
+        const tileX = Math.round(m.x / 32);
+        const tileY = Math.round(m.y / 32);
+        if (!this._explored || !this._explored[tileY] || !this._explored[tileY][tileX]) continue;
         const dot = this.scene.add.circle(
           this.x + (m.x / mx) * this.width,
           this.y + (m.y / my) * this.height,
@@ -74,6 +112,9 @@ class Minimap {
     if (otherPlayers) {
       for (const p of otherPlayers) {
         if (p.a === false) continue;
+        const tileX = Math.round(p.x / 32);
+        const tileY = Math.round(p.y / 32);
+        if (!this._explored || !this._explored[tileY] || !this._explored[tileY][tileX]) continue;
         const dot = this.scene.add.circle(
           this.x + (p.x / mx) * this.width,
           this.y + (p.y / my) * this.height,
@@ -85,11 +126,13 @@ class Minimap {
   }
 
   refreshMap(mapData) {
+    this._explored = null;
     this._drawBg(mapData);
   }
 
   destroy() {
     this.bg.destroy();
+    this.fog.destroy();
     this.border.destroy();
     this.playerDot.destroy();
     if (this.label) this.label.destroy();

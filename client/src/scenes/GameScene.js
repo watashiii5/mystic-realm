@@ -34,6 +34,22 @@ const ITEM_TYPES = {
 };
 const RARITY_COLORS = { 0: '#aaaaaa', 1: '#ffffff', 2: '#44ff44', 3: '#44ccff', 4: '#cc44ff', 5: '#ff8800' };
 const RARITY_NAMES = { 0: 'Common', 1: 'Common', 2: 'Uncommon', 3: 'Rare', 4: 'Epic', 5: 'Legendary' };
+const ITEM_DESCS = {
+  wooden_staff: 'A basic wooden staff', starter_robe: 'Simple cloth robe', starter_ring: 'A simple copper ring',
+  forest_staff: 'Carved from living wood', leaf_cloak: 'Woven from enchanted leaves', vine_ring: 'Living vines coiled into a ring',
+  crystal_staff: 'Pulsing with crystal energy', crystal_robe: 'Robes lined with crystal shards', crystal_ring: 'A ring of pure crystal',
+  ancient_staff: 'Wielded by forgotten mages', ancient_robe: 'Etched with ancient runes', soul_ring: 'Pulses with a faint heartbeat',
+  legendary_staff: 'Staff of a true archmage', legendary_robe: 'Robes woven from starlight', boss_ring: "The Aether Lord's own ring",
+  health_pot: 'Restores 40 HP', mana_pot: 'Restores 30 MP', greater_health_pot: 'Restores 80 HP', greater_mana_pot: 'Restores 60 MP',
+};
+const ITEM_STATS = {
+  wooden_staff: { atk: 3 }, starter_robe: { def: 2 }, starter_ring: { mp: 10 },
+  forest_staff: { atk: 6, mp: 5 }, leaf_cloak: { def: 4, hp: 10 }, vine_ring: { hp: 15 },
+  crystal_staff: { atk: 10, mp: 10 }, crystal_robe: { def: 7, mp: 15 }, crystal_ring: { mp: 25 },
+  ancient_staff: { atk: 15, mp: 15 }, ancient_robe: { def: 10, mp: 20 }, soul_ring: { hp: 25, mp: 15 },
+  legendary_staff: { atk: 22, mp: 25 }, legendary_robe: { def: 15, hp: 30 }, boss_ring: { hp: 40, mp: 30, atk: 5 },
+  health_pot: { heal: 40 }, mana_pot: { mana: 30 }, greater_health_pot: { heal: 80 }, greater_mana_pot: { mana: 60 },
+};
 
 const SPELL_NAMES = {
   magic_bolt: 'Magic Bolt', heal: 'Heal', fireball: 'Fireball',
@@ -114,6 +130,7 @@ class GameScene extends Phaser.Scene {
     this.minimap = null;
     this.particles = null;
     this.netStatusText = null;
+    this.petSprite = null;
   }
 
   create() {
@@ -207,6 +224,9 @@ class GameScene extends Phaser.Scene {
           toX: Math.round(pointer.x),
           toY: Math.round(pointer.y),
         });
+        if (this.spellSlots) {
+          for (const s of this.spellSlots) { if (s.key === this.selectedSpell) s.lastCast = Date.now(); }
+        }
         this.playerSprite.setTint(0x88ccff);
         this.time.delayedCall(120, () => { if (this.playerSprite && !this.dead) this.playerSprite.clearTint(); });
         const castFlash = this.add.circle(this.playerSprite.x, this.playerSprite.y, 12, 0x88ccff, 0.3).setDepth(11);
@@ -318,6 +338,18 @@ class GameScene extends Phaser.Scene {
         self.myStats.xp = me.xp;
         self.updateHUD();
         self.updateXPBar(me.xp);
+        if (me.pet) {
+          if (!self.petSprite) {
+            self.petSprite = self.add.circle(0, 0, 6, 0xcc8844).setDepth(10);
+            self.petName = self.add.text(0, -10, 'Wolf', { fontSize: '8px', fontFamily: 'monospace', color: '#cc8844', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(11);
+          }
+          self.petSprite.setPosition(me.pet.x, me.pet.y);
+          self.petName.setPosition(me.pet.x, me.pet.y - 10);
+          self.petSprite.setAlpha(me.pet.hp > 0 ? 1 : 0.2);
+        } else {
+          if (self.petSprite) { self.petSprite.destroy(); self.petSprite = null; }
+          if (self.petName) { self.petName.destroy(); self.petName = null; }
+        }
       }
     });
 
@@ -333,6 +365,8 @@ class GameScene extends Phaser.Scene {
         self.clearProjectiles();
         self.clearGroundItems();
         self.targetMonster = null;
+        if (self.petSprite) { self.petSprite.destroy(); self.petSprite = null; }
+        if (self.petName) { self.petName.destroy(); self.petName = null; }
         if (self.equipmentAura) self.equipmentAura.clear();
         if (self.equipmentOverlay) self.equipmentOverlay.destroy();
         self.equipmentOverlay = null;
@@ -387,6 +421,9 @@ class GameScene extends Phaser.Scene {
       if (data.id === self.myId) {
         self.dead = true;
         window.soundManager.playDeath();
+        if (data.xpLost && data.xpLost > 0) self.addChatMessage('System', 'You lost ' + data.xpLost + ' XP!', '#ff4444');
+        if (self.petSprite) { self.petSprite.destroy(); self.petSprite = null; }
+        if (self.petName) { self.petName.destroy(); self.petName = null; }
         if (self.playerSprite) {
           self.playerSprite.setAlpha(0.3);
           self.playerSprite.setTint(0xff4444);
@@ -744,7 +781,10 @@ class GameScene extends Phaser.Scene {
       const highlight = this.add.graphics();
       this.spellBarContainer.add(highlight);
 
-      this.spellSlots.push({ bg: slotBg, name: spellName, cost: spellCost, highlight, key: null });
+      const cdBar = this.add.graphics().setAlpha(0.6);
+      this.spellBarContainer.add(cdBar);
+
+      this.spellSlots.push({ bg: slotBg, name: spellName, cost: spellCost, highlight, cdBar, key: null, lastCast: 0 });
     }
     this.updateSpellBar();
   }
@@ -1317,7 +1357,35 @@ class GameScene extends Phaser.Scene {
       const bg = this.add.graphics().setDepth(150);
       bg.fillStyle(0x444444); bg.fillRect(ix, iy, 165, 26);
       bg.lineStyle(1, 0x666666); bg.strokeRect(ix, iy, 165, 26);
+      bg.setInteractive(new Phaser.Geom.Rectangle(ix, iy, 165, 26), Phaser.Geom.Rectangle.Contains);
+      const iidItem = i;
+      const tooltipData = ITEM_DESCS[itemKey] || null;
+      const tooltipStats = ITEM_STATS[itemKey] || null;
+      bg.on('pointerover', () => {
+        if (this._itemTooltip) this._itemTooltip.destroy();
+        const lines = [displayName + ' (' + (RARITY_NAMES[tier] || 'Common') + ')'];
+        if (tooltipData) lines.push(tooltipData);
+        if (tooltipStats) {
+          const parts = [];
+          if (tooltipStats.atk) parts.push('ATK+' + tooltipStats.atk);
+          if (tooltipStats.def) parts.push('DEF+' + tooltipStats.def);
+          if (tooltipStats.hp) parts.push('HP+' + tooltipStats.hp);
+          if (tooltipStats.mp) parts.push('MP+' + tooltipStats.mp);
+          if (tooltipStats.heal) parts.push('Heal ' + tooltipStats.heal);
+          if (tooltipStats.mana) parts.push('Mana ' + tooltipStats.mana);
+          if (parts.length) lines.push(parts.join(' | '));
+        }
+        const yOff = Math.min(iy, 400);
+        this._itemTooltip = this.add.text(ix + 170, yOff, lines.join('\n'), {
+          fontSize: '10px', fontFamily: 'monospace', color: '#ffffff',
+          backgroundColor: '#000000cc', padding: { x: 4, y: 2 },
+        }).setDepth(200);
+      });
+      bg.on('pointerout', () => {
+        if (this._itemTooltip) { this._itemTooltip.destroy(); this._itemTooltip = null; }
+      });
       this.inventoryElements.push(bg);
+
 
       const displayName = ITEM_NAMES[itemKey] || itemKey;
       const shortKey = displayName.length > 16 ? displayName.slice(0, 16) + '..' : displayName;
@@ -1607,14 +1675,24 @@ class GameScene extends Phaser.Scene {
       if (dt.alpha <= 0) { dt.alpha = 0; }
     }
 
-    if (this.selectedSpell && this.spellSlots) {
-      const pulse = 0.6 + Math.sin(this.pulseTime * 0.005) * 0.4;
+    if (this.spellSlots) {
+      const now = Date.now();
+      const cd = 1500;
       for (let i = 0; i < 5; i++) {
         const slot = this.spellSlots[i];
         if (slot.key === this.selectedSpell) {
+          const pulse = 0.6 + Math.sin(this.pulseTime * 0.005) * 0.4;
           slot.highlight.clear();
           slot.highlight.lineStyle(2, Phaser.Display.Color.GetColor(Math.floor(255 * pulse), Math.floor(200 * pulse), 0));
           slot.highlight.strokeRect(70 + i * 102, 424, 96, 40);
+        }
+        const elapsed = now - (slot.lastCast || 0);
+        const pct = Math.min(1, elapsed / cd);
+        slot.cdBar.clear();
+        if (pct < 1) {
+          const bw = 96 * (1 - pct);
+          slot.cdBar.fillStyle(0x000000, 0.5);
+          slot.cdBar.fillRect(70 + i * 102, 424, bw, 40);
         }
       }
     }
@@ -1788,5 +1866,7 @@ class GameScene extends Phaser.Scene {
     if (this.minimap) this.minimap.destroy();
     if (this.equipmentOverlay) this.equipmentOverlay.destroy();
     if (this.netStatusText) this.netStatusText.destroy();
+    if (this.petSprite) this.petSprite.destroy();
+    if (this.petName) this.petName.destroy();
   }
 }
