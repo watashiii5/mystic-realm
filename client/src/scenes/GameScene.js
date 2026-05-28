@@ -23,6 +23,15 @@ const ITEM_TIERS = {
   ancient_staff: 4, ancient_robe: 4, soul_ring: 4,
   legendary_staff: 5, legendary_robe: 5, boss_ring: 5,
 };
+const ITEM_TYPES = {
+  wooden_staff: 'weapon', starter_robe: 'armor', starter_ring: 'accessory',
+  forest_staff: 'weapon', leaf_cloak: 'armor', vine_ring: 'accessory',
+  crystal_staff: 'weapon', crystal_robe: 'armor', crystal_ring: 'accessory',
+  ancient_staff: 'weapon', ancient_robe: 'armor', soul_ring: 'accessory',
+  legendary_staff: 'weapon', legendary_robe: 'armor', boss_ring: 'accessory',
+  health_pot: 'consumable', mana_pot: 'consumable',
+  greater_health_pot: 'consumable', greater_mana_pot: 'consumable',
+};
 const RARITY_COLORS = { 0: '#aaaaaa', 1: '#ffffff', 2: '#44ff44', 3: '#44ccff', 4: '#cc44ff', 5: '#ff8800' };
 const RARITY_NAMES = { 0: 'Common', 1: 'Common', 2: 'Uncommon', 3: 'Rare', 4: 'Epic', 5: 'Legendary' };
 
@@ -180,6 +189,10 @@ class GameScene extends Phaser.Scene {
           toX: Math.round(pointer.x),
           toY: Math.round(pointer.y),
         });
+        this.playerSprite.setTint(0x88ccff);
+        this.time.delayedCall(120, () => { if (this.playerSprite && !this.dead) this.playerSprite.clearTint(); });
+        const castFlash = this.add.circle(this.playerSprite.x, this.playerSprite.y, 12, 0x88ccff, 0.3).setDepth(11);
+        this.tweens.add({ targets: castFlash, scaleX: 2.5, scaleY: 2.5, alpha: 0, duration: 300, onComplete: () => castFlash.destroy() });
       }
     });
 
@@ -242,6 +255,8 @@ class GameScene extends Phaser.Scene {
       self.myStats = data.player;
       self.statPoints = data.player.sp || 0;
       self.allocatedStats = data.player.as || { hp: 0, mp: 0, atk: 0, def: 0 };
+      if (data.player.zv) self.zonesVisited = data.player.zv;
+      if (data.player.mk !== undefined) self.progressMonstersKilled = data.player.mk;
       self.createPlayer();
       self.updateEquipmentVisuals();
       self.createHUD();
@@ -294,7 +309,7 @@ class GameScene extends Phaser.Scene {
         if (self.equipmentAura) self.equipmentAura.clear();
         self.lastEquippedHash = '';
         self.updateEquipmentVisuals();
-        self.zoneLabel = data.zoneDef?.name || data.zone;
+        self.zoneLabel = (data.zoneDef?.name || data.zone) + (data.zoneDef?.levels ? ' (' + data.zoneDef.levels + ')' : '');
         if (self.zoneText) self.zoneText.setText(self.zoneLabel);
         if (data.zoneDef?.lore) self.showZoneLore(data.zoneDef.name || data.zone, data.zoneDef.lore, data.zoneDef.color || '#88ccff');
         self.cameras.main.fadeIn(200);
@@ -308,15 +323,24 @@ class GameScene extends Phaser.Scene {
 
     self.network.on('monster_died', (data) => {
       if (data.lv) self.showLevelUp(data.nl);
+      const isBoss = data.boss;
       const ms = self.monsterSprites[data.mid];
       if (ms) {
-        for (let i = 0; i < 5; i++) {
+        const pCount = isBoss ? 14 : 7;
+        for (let i = 0; i < pCount; i++) {
           const px = data.x + (Math.random() - 0.5) * 20;
           const py = data.y + (Math.random() - 0.5) * 20;
           const colors = ['#ff4444', '#ff8844', '#ffff44', '#ffcc00', '#ffffff'];
-          const pt = self.add.text(px, py, ['*', '.', 'o', '+', '!'][Math.random() * 5 | 0], { fontSize: '10px', fontFamily: 'monospace', color: colors[Math.random() * colors.length | 0] }).setOrigin(0.5).setDepth(100);
-          self.tweens.add({ targets: pt, x: px + (Math.random() - 0.5) * 30, y: py - 20 - Math.random() * 20, alpha: 0, duration: 500 + Math.random() * 300, onComplete: () => pt.destroy() });
+          const pt = self.add.text(px, py, ['*', '.', 'o', '+', '!'][Math.random() * 5 | 0], { fontSize: isBoss ? '14px' : '10px', fontFamily: 'monospace', color: colors[Math.random() * colors.length | 0] }).setOrigin(0.5).setDepth(100);
+          self.tweens.add({ targets: pt, x: px + (Math.random() - 0.5) * (isBoss ? 70 : 40), y: py - (isBoss ? 40 : 20) - Math.random() * 20, alpha: 0, duration: (isBoss ? 800 : 500) + Math.random() * 300, onComplete: () => pt.destroy() });
         }
+        if (isBoss) {
+          const boom = self.add.circle(data.x, data.y, 8, 0xff4400, 0.5).setDepth(9);
+          self.tweens.add({ targets: boom, scaleX: 6, scaleY: 6, alpha: 0, duration: 500, onComplete: () => boom.destroy() });
+          self.cameras.main.shake(200, 0.01);
+        }
+        const deathRing = self.add.circle(data.x, data.y, 3, isBoss ? 0xff4400 : 0xffffff, 0.3).setDepth(9);
+        self.tweens.add({ targets: deathRing, scaleX: 4, scaleY: 4, alpha: 0, duration: 400, onComplete: () => deathRing.destroy() });
         self.tweens.add({ targets: [ms.sprite, ms.hpBar, ms.nameText], alpha: 0, duration: 400, onComplete: () => {
           if (self.monsterSprites[data.mid]) {
             self.monsterSprites[data.mid].sprite.destroy();
@@ -337,14 +361,20 @@ class GameScene extends Phaser.Scene {
         self.dead = true;
         if (self.playerSprite) {
           self.playerSprite.setAlpha(0.3);
-          for (let i = 0; i < 6; i++) {
+          self.playerSprite.setTint(0xff4444);
+          for (let i = 0; i < 12; i++) {
             const px = self.playerSprite.x + (Math.random() - 0.5) * 20;
             const py = self.playerSprite.y + (Math.random() - 0.5) * 20;
-            const pt = self.add.text(px, py, ['*', 'x', '+', '!'][Math.random() * 4 | 0], { fontSize: '12px', fontFamily: 'monospace', color: '#ff4444' }).setOrigin(0.5).setDepth(100);
-            self.tweens.add({ targets: pt, x: px + (Math.random() - 0.5) * 40, y: py - 30 - Math.random() * 20, alpha: 0, duration: 800, onComplete: () => pt.destroy() });
+            const chars = ['*', 'x', '+', '!', ' skull ', ' . '];
+            const pt = self.add.text(px, py, chars[Math.random() * chars.length | 0], { fontSize: '10px', fontFamily: 'monospace', color: ['#ff4444', '#ff6666', '#cc2222'][Math.random() * 3 | 0] }).setOrigin(0.5).setDepth(100);
+            self.tweens.add({ targets: pt, x: px + (Math.random() - 0.5) * 60, y: py - 40 - Math.random() * 30, alpha: 0, duration: 900 + Math.random() * 300, onComplete: () => pt.destroy() });
           }
+          const deathRing = self.add.circle(self.playerSprite.x, self.playerSprite.y, 4, 0x440000, 0.6).setDepth(9);
+          self.tweens.add({ targets: deathRing, scaleX: 8, scaleY: 8, alpha: 0, duration: 600, onComplete: () => deathRing.destroy() });
         }
-        self.cameras.main.shake(200, 0.008);
+        self.cameras.main.shake(300, 0.012);
+        const deathOverlay = self.add.rectangle(self.cameras.main.scrollX + 400, self.cameras.main.scrollY + 300, 800, 600, 0x220000, 0.4).setDepth(200);
+        self.tweens.add({ targets: deathOverlay, alpha: 0, duration: 800, delay: 300, onComplete: () => deathOverlay.destroy() });
         self.addChatMessage('System', 'You died! Press R to respawn.', '#ff4444');
       }
     });
@@ -379,7 +409,13 @@ class GameScene extends Phaser.Scene {
         if (self.playerSprite) {
           self.playerSprite.setTint(0x44ff44);
           self.time.delayedCall(200, () => { if (self.playerSprite && !self.dead) self.playerSprite.clearTint(); });
+          for (let i = 0; i < 5; i++) {
+            const pt = self.add.text(self.playerSprite.x + (Math.random() - 0.5) * 24, self.playerSprite.y + (Math.random() - 0.5) * 24, '+', { fontSize: '10px', fontFamily: 'monospace', color: ['#44ff44', '#88ff88', '#ccffcc'][Math.random() * 3 | 0] }).setOrigin(0.5).setDepth(100);
+            self.tweens.add({ targets: pt, y: pt.y - 25 - Math.random() * 15, alpha: 0, duration: 600 + Math.random() * 200, onComplete: () => pt.destroy() });
+          }
         }
+        const healRing = self.add.circle(data.x, data.y, 5, 0x44ff44, 0.3).setDepth(9);
+        self.tweens.add({ targets: healRing, scaleX: 3, scaleY: 3, alpha: 0, duration: 400, onComplete: () => healRing.destroy() });
       }
       if (data.ty === 'player' && data.ti === self.myId) self.updateHUD();
     });
@@ -402,7 +438,13 @@ class GameScene extends Phaser.Scene {
 
     self.network.on('item_removed', (data) => {
       const gs = self.groundItemSprites[data.itemId];
-      if (gs) { gs.sprite.destroy(); if (gs.glow) gs.glow.destroy(); if (gs.zone) gs.zone.destroy(); if (gs.label) gs.label.destroy(); if (gs.pulse) gs.pulse.stop(); delete self.groundItemSprites[data.itemId]; }
+      if (gs) {
+        if (self.playerSprite && !self.dead) {
+          const fly = self.add.circle(gs.sprite.x, gs.sprite.y, 4, gs.sprite.fillColor || 0xffffff, 0.7).setDepth(20);
+          self.tweens.add({ targets: fly, x: self.playerSprite.x, y: self.playerSprite.y, scaleX: 0.2, scaleY: 0.2, alpha: 0.3, duration: 300, ease: 'Cubic.easeIn', onComplete: () => fly.destroy() });
+        }
+        gs.sprite.destroy(); if (gs.glow) gs.glow.destroy(); if (gs.zone) gs.zone.destroy(); if (gs.label) gs.label.destroy(); if (gs.pulse) gs.pulse.stop(); delete self.groundItemSprites[data.itemId];
+      }
     });
 
     self.network.on('ground_items', (items) => {
@@ -945,16 +987,33 @@ class GameScene extends Phaser.Scene {
         } else {
           g.fillCircle(0, 0, 4);
         }
-        ps = { sprite: g, glow };
+        ps = { sprite: g, glow, trail: [], prevX: p.x, prevY: p.y, col };
         this.projectileSprites[p.id] = ps;
       }
+
+      const dx = p.x - ps.prevX;
+      const dy = p.y - ps.prevY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 4 && ps.trail) {
+        const trailG = this.add.graphics().setDepth(10).setAlpha(0.4);
+        trailG.fillStyle(ps.col, 0.3);
+        trailG.fillCircle(0, 0, ps.col === 0xff6600 ? 5 : 3);
+        trailG.setPosition(ps.prevX, ps.prevY);
+        ps.trail.push(trailG);
+        this.tweens.add({ targets: trailG, alpha: 0, duration: 250, onComplete: () => { trailG.destroy(); if (ps.trail) ps.trail.splice(ps.trail.indexOf(trailG), 1); } });
+      }
+      ps.prevX = p.x;
+      ps.prevY = p.y;
+
       ps.sprite.setPosition(p.x, p.y);
       if (ps.glow) ps.glow.setPosition(p.x, p.y);
     }
     for (const id in this.projectileSprites) {
       if (!activeIds.has(parseInt(id))) {
-        this.projectileSprites[id].sprite.destroy();
-        if (this.projectileSprites[id].glow) this.projectileSprites[id].glow.destroy();
+        const ps = this.projectileSprites[id];
+        ps.sprite.destroy();
+        if (ps.glow) ps.glow.destroy();
+        if (ps.trail) { for (const t of ps.trail) t.destroy(); }
         delete this.projectileSprites[id];
       }
     }
@@ -962,8 +1021,10 @@ class GameScene extends Phaser.Scene {
 
   clearProjectiles() {
     for (const id in this.projectileSprites) {
-      this.projectileSprites[id].sprite.destroy();
-      if (this.projectileSprites[id].glow) this.projectileSprites[id].glow.destroy();
+      const ps = this.projectileSprites[id];
+      ps.sprite.destroy();
+      if (ps.glow) ps.glow.destroy();
+      if (ps.trail) { for (const t of ps.trail) t.destroy(); }
     }
     this.projectileSprites = {};
   }
@@ -1181,7 +1242,7 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    const invTitle = this.add.text(50, 120 + (spSection ? 38 : 0), 'Items (' + Math.min(this.inventory.length, 20) + ') — Use  Equip:', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
+    const invTitle = this.add.text(50, 120 + (spSection ? 38 : 0), 'Items (' + Math.min(this.inventory.length, 20) + ')', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
     this.inventoryElements.push(invTitle);
 
     const maxShow = Math.min(this.inventory.length, 20);
@@ -1194,35 +1255,41 @@ class GameScene extends Phaser.Scene {
       const ix = 50 + col * 175;
       const iy = 140 + invOffset + row * 32;
 
+      const itemType = ITEM_TYPES[itemKey] || '';
+      const isConsumable = itemType === 'consumable';
+      const isEquippable = !isConsumable && itemType !== 'scroll' && itemType !== '';
+
       const bg = this.add.graphics().setDepth(150);
       bg.fillStyle(0x444444); bg.fillRect(ix, iy, 165, 26);
       bg.lineStyle(1, 0x666666); bg.strokeRect(ix, iy, 165, 26);
       this.inventoryElements.push(bg);
 
       const displayName = ITEM_NAMES[itemKey] || itemKey;
-      const shortKey = displayName.length > 18 ? displayName.slice(0, 18) + '..' : displayName;
-      const iText = this.add.text(ix + 4, iy + 1, shortKey, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(150);
+      const shortKey = displayName.length > 16 ? displayName.slice(0, 16) + '..' : displayName;
+      const tier = ITEM_TIERS[itemKey] !== undefined ? ITEM_TIERS[itemKey] : 0;
+      const nameColor = RARITY_COLORS[tier] || '#ffffff';
+      const iText = this.add.text(ix + 4, iy + 1, shortKey, { fontSize: '10px', fontFamily: 'monospace', color: nameColor }).setDepth(150);
       this.inventoryElements.push(iText);
 
-      const useBg = this.add.graphics().setDepth(151);
-      useBg.fillStyle(0x335533); useBg.fillRect(ix + 2, iy + 14, 50, 10);
-      useBg.setInteractive(new Phaser.Geom.Rectangle(ix + 2, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
-      const iid = i;
-      useBg.on('pointerdown', () => { this.network.emit('use_item', { itemKey: this.inventory[iid] }); this.showInventory(); });
-      this.inventoryElements.push(useBg);
-
-      const useText = this.add.text(ix + 27, iy + 15, 'Use', { fontSize: '10px', fontFamily: 'monospace', color: '#88ff88' }).setOrigin(0.5).setDepth(152);
-      this.inventoryElements.push(useText);
-
-      const eqBg = this.add.graphics().setDepth(151);
-      eqBg.fillStyle(0x333355); eqBg.fillRect(ix + 56, iy + 14, 50, 10);
-      eqBg.setInteractive(new Phaser.Geom.Rectangle(ix + 56, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
-      const iid2 = i;
-      eqBg.on('pointerdown', () => { this.network.emit('equip_item', { itemKey: this.inventory[iid2] }); this.showInventory(); });
-      this.inventoryElements.push(eqBg);
-
-      const eqText = this.add.text(ix + 81, iy + 15, 'Equip', { fontSize: '10px', fontFamily: 'monospace', color: '#8888ff' }).setOrigin(0.5).setDepth(152);
-      this.inventoryElements.push(eqText);
+      if (isConsumable) {
+        const useBg = this.add.graphics().setDepth(151);
+        useBg.fillStyle(0x335533); useBg.fillRect(ix + 2, iy + 14, 50, 10);
+        useBg.setInteractive(new Phaser.Geom.Rectangle(ix + 2, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
+        const iid = i;
+        useBg.on('pointerdown', () => { this.network.emit('use_item', { itemKey: this.inventory[iid] }); this.showInventory(); });
+        this.inventoryElements.push(useBg);
+        const useText = this.add.text(ix + 27, iy + 15, 'Use', { fontSize: '10px', fontFamily: 'monospace', color: '#88ff88' }).setOrigin(0.5).setDepth(152);
+        this.inventoryElements.push(useText);
+      } else if (isEquippable) {
+        const eqBg = this.add.graphics().setDepth(151);
+        eqBg.fillStyle(0x333355); eqBg.fillRect(ix + 56, iy + 14, 50, 10);
+        eqBg.setInteractive(new Phaser.Geom.Rectangle(ix + 56, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
+        const iid2 = i;
+        eqBg.on('pointerdown', () => { this.network.emit('equip_item', { itemKey: this.inventory[iid2] }); this.showInventory(); });
+        this.inventoryElements.push(eqBg);
+        const eqText = this.add.text(ix + 81, iy + 15, 'Equip', { fontSize: '10px', fontFamily: 'monospace', color: '#8888ff' }).setOrigin(0.5).setDepth(152);
+        this.inventoryElements.push(eqText);
+      }
     }
   }
 
@@ -1316,6 +1383,7 @@ class GameScene extends Phaser.Scene {
       const targetY = baseY + idx * lineH;
       if (msg.y === undefined) msg.y = 430;
       if (msg.y > targetY) msg.y = Math.max(targetY, msg.y - 2.5);
+      else if (msg.y < targetY) msg.y = Math.min(targetY, msg.y + 2.5);
 
       t.setText(msg.text);
       t.setPosition(10, msg.y);
@@ -1389,8 +1457,13 @@ class GameScene extends Phaser.Scene {
       }
 
       this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
+
+      this.walkCycle += delta * (sprinting ? 0.012 : 0.008);
+      this.walkBob = Math.sin(this.walkCycle) * 2;
+      this.playerSprite.y += this.walkBob;
     } else {
       this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
+      this.walkBob = 0;
     }
 
     if (this.isSprinting) {
@@ -1407,7 +1480,7 @@ class GameScene extends Phaser.Scene {
       }
       if (this.sprintMpTimer === undefined) this.sprintMpTimer = 0;
       this.sprintMpTimer += delta;
-      if (this.sprintMpTimer > 200) {
+      if (this.sprintMpTimer > 200 && this.myStats.mp > 0) {
         this.sprintMpTimer = 0;
         this.showDamageNumber(this.playerSprite.x + 10, this.playerSprite.y - 16, '-1 MP', '#8888ff');
       }
@@ -1416,6 +1489,7 @@ class GameScene extends Phaser.Scene {
         this.sprintLines[i].destroy();
       }
       this.sprintLines = [];
+      this.sprintMpTimer = 0;
     }
 
     if (this.sprintText) {
@@ -1550,6 +1624,16 @@ class GameScene extends Phaser.Scene {
     g.lineStyle(2, 0xffcc00);
     g.strokeRect(10, 10, 620, 460);
     this.helpElements.push(g);
+
+    const closeZone = this.add.zone(320, 240, 640, 480).setInteractive().setDepth(302);
+    closeZone.on('pointerdown', () => this.toggleHelp());
+    this.helpElements.push(closeZone);
+
+    const closeBtn = this.add.text(580, 440, '[ CLOSE ]', { fontSize: '12px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(303);
+    const closeBtnZone = this.add.zone(580, 440, 100, 24).setInteractive().setDepth(304);
+    closeBtnZone.on('pointerdown', (e) => { e.stopPropagation(); this.toggleHelp(); });
+    this.helpElements.push(closeBtn);
+    this.helpElements.push(closeBtnZone);
 
     const lines = [
       { text: '=== GUIDE BOOK ===', color: '#ffcc00', s: 14 },

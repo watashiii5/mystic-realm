@@ -243,7 +243,7 @@ function createMonsterInstance(zone, monsterKey, id) {
   const walkable = [];
   for (let y = 1; y < MAP_ROWS - 1; y++) {
     for (let x = 1; x < MAP_COLS - 1; x++) {
-      if (map[y][x] === 0 || map[y][x] === 4) walkable.push({ x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 });
+      if (isWalkable(zone, x, y)) walkable.push({ x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 });
     }
   }
   const spawn = walkable.length > 0 ? walkable[Math.random() * walkable.length | 0] : getSpawnTile(zone);
@@ -255,8 +255,9 @@ function createMonsterInstance(zone, monsterKey, id) {
     y: spawn.y + (Math.random() - 0.5) * 32,
     color: def.color, ranged: def.ranged || false,
     boss: def.boss || false, alive: true,
+    poison: def.poison || 0, lifedrain: def.lifedrain || 0, teleport: def.teleport || false,
     target: null, aggroTimer: 0,
-    lastAttack: 0, moveDir: Math.random() * Math.PI * 2,
+    lastAttack: 0, deathTime: 0, moveDir: Math.random() * Math.PI * 2,
     moveTimer: 0,
   };
 }

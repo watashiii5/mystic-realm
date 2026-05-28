@@ -58,8 +58,8 @@ class MenuScene extends Phaser.Scene {
       alpha: 1, duration: 600, delay: 500,
     });
 
-    const blink = this.add.text(cx, cy + 80, 'Press ENTER to begin', {
-      fontSize: '18px', fontFamily: 'monospace', color: '#ffffff',
+    const blink = this.add.text(cx, cy + 80, 'Press any key or click to begin', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setAlpha(0);
 
     this.tweens.add({
@@ -73,10 +73,13 @@ class MenuScene extends Phaser.Scene {
       fontSize: '9px', fontFamily: 'monospace', color: '#333344',
     }).setOrigin(1, 1);
 
-    this.input.keyboard.on('keydown-ENTER', () => {
+    const startGame = () => {
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.time.delayedCall(300, () => this.scene.start('CharCreateScene'));
-    });
+    };
+
+    this.input.keyboard.on('keydown', startGame);
+    this.input.on('pointerdown', startGame);
   }
 
   update(time, delta) {

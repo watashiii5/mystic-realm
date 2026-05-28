@@ -197,13 +197,15 @@ function monsterAI(zone, monsters, players, now) {
         m._wanderT = 1000 + (Math.random() * 2000 | 0);
       }
       const spd = m.speed * 0.006;
+      const oldX = m.x, oldY = m.y;
       m.x += Math.cos(m._wander) * spd;
       m.y += Math.sin(m._wander) * spd;
-      if (m.y < TILE_SIZE || m.y >= (MAP_ROWS - 1) * TILE_SIZE || m.x < TILE_SIZE || m.x >= (MAP_COLS - 1) * TILE_SIZE) {
+      const wtX = (m.x / TILE_SIZE) | 0;
+      const wtY = (m.y / TILE_SIZE) | 0;
+      if (!isWalkable(zone, wtX, wtY)) {
+        m.x = oldX; m.y = oldY;
         m._wander += Math.PI;
       }
-      m.x = m.x < TILE_SIZE ? TILE_SIZE : m.x > (MAP_COLS - 1) * TILE_SIZE ? (MAP_COLS - 1) * TILE_SIZE : m.x;
-      m.y = m.y < TILE_SIZE ? TILE_SIZE : m.y > (MAP_ROWS - 1) * TILE_SIZE ? (MAP_ROWS - 1) * TILE_SIZE : m.y;
       continue;
     }
 
@@ -212,8 +214,12 @@ function monsterAI(zone, monsters, players, now) {
     if (dist > 24) {
       const dx = (closest.x - m.x) / dist;
       const dy = (closest.y - m.y) / dist;
+      const oldX = m.x, oldY = m.y;
       m.x += dx * m.speed * 0.018;
       m.y += dy * m.speed * 0.018;
+      const ctX = (m.x / TILE_SIZE) | 0;
+      const ctY = (m.y / TILE_SIZE) | 0;
+      if (!isWalkable(zone, ctX, ctY)) { m.x = oldX; m.y = oldY; }
     }
 
     const pid = closest.id;
@@ -234,10 +240,9 @@ function monsterAI(zone, monsters, players, now) {
           hit += drain;
         }
         if (m.teleport && Math.random() < 0.35) {
-          const map2 = getZoneMap(zone);
           for (let ty = 2; ty < MAP_ROWS - 2; ty++) {
             for (let tx = 2; tx < MAP_COLS - 2; tx++) {
-              if (map2[ty][tx] === 0 || map2[ty][tx] === 4) {
+              if (isWalkable(zone, tx, ty)) {
                 m.x = tx * TILE_SIZE + TILE_SIZE / 2;
                 m.y = ty * TILE_SIZE + TILE_SIZE / 2;
                 ty = MAP_ROWS; break;
@@ -279,7 +284,7 @@ function checkProjectiles(zone, monsters, players) {
           const zoneRoom = 'zone_' + zone;
           io.to(zoneRoom).emit('combat_event', { t: 'damage', ty: 'monster', ti: m.id, a: dmg, x: m.x, y: m.y });
           if (m.hp <= 0) {
-            m.hp = 0; m.alive = false;
+            m.hp = 0; m.alive = false; m.deathTime = Date.now();
             for (let oi = 0; oi < players.length; oi++) {
               if (players[oi].id === p.ownerId) {
                 const owner = players[oi];
@@ -381,7 +386,7 @@ function gameLoop() {
     }
 
     for (let mi = monsters.length - 1; mi >= 0; mi--) {
-      if (!monsters[mi].alive && now - monsters[mi].lastAttack > MONSTER_RESPAWN) {
+      if (!monsters[mi].alive && now - monsters[mi].deathTime > MONSTER_RESPAWN) {
         const mk = ZONE_DEFS[zone].monsters[Math.random() * ZONE_DEFS[zone].monsters.length | 0];
         const nm = G.createMonsterInstance(zone, mk, gameState.nextMonsterId++);
         if (nm) monsters[mi] = nm;
@@ -541,7 +546,7 @@ io.on('connection', (socket) => {
         m.hp -= dmg;
         io.to('zone_' + currentZone).emit('combat_event', { t: 'damage', ty: 'monster', ti: m.id, a: dmg, x: m.x, y: m.y });
         if (m.hp <= 0) {
-          m.hp = 0; m.alive = false;
+          m.hp = 0; m.alive = false; m.deathTime = Date.now();
           player.monstersKilled++;
           const xpr = giveXP(player, m.xp);
           io.to('zone_' + currentZone).emit('monster_died', { mid: m.id, pid: id, x: m.x, y: m.y, xp: m.xp, lv: xpr.leveledUp, nl: xpr.newLevel, xpe: player.xp, mk: player.monstersKilled });
@@ -558,7 +563,7 @@ io.on('connection', (socket) => {
       }
       const impact = { x: player.x, y: player.y, color: 0xcccccc };
       io.to('zone_' + currentZone).emit('melee_swing', impact);
-    } else if (spell.summon || spell.dmg >= 0) {
+    } else if ((spell.summon || spell.dmg >= 0) && !spell.aoe) {
       addProjectile(id, currentZone, data.spell, player.x, player.y, tx, ty);
     }
 
@@ -572,7 +577,7 @@ io.on('connection', (socket) => {
         m.hp -= dmg;
         io.to('zone_' + currentZone).emit('combat_event', { t: 'damage', ty: 'monster', ti: m.id, a: dmg, x: m.x, y: m.y });
         if (m.hp <= 0) {
-          m.hp = 0; m.alive = false;
+          m.hp = 0; m.alive = false; m.deathTime = Date.now();
           player.monstersKilled++;
           const xpr = giveXP(player, m.xp);
           io.to('zone_' + currentZone).emit('monster_died', { mid: m.id, pid: id, x: m.x, y: m.y, xp: m.xp, lv: xpr.leveledUp, nl: xpr.newLevel, xpe: player.xp, mk: player.monstersKilled });
