@@ -10,67 +10,117 @@ class SettingsPanel {
     const s = this.scene;
     const cx = 320;
     const cy = 240;
+    const panelW = 320;
+    const panelH = 310;
 
-    const bg = s.add.rectangle(cx, cy, 300, 260, 0x111122, 0.92).setDepth(300).setOrigin(0.5).setAlpha(0).setInteractive();
+    const bg = s.add.rectangle(cx, cy, panelW, panelH, 0x111122, 0.94).setDepth(300).setOrigin(0.5).setAlpha(0).setInteractive();
     const border = s.add.graphics().setDepth(301).setAlpha(0);
     border.lineStyle(2, 0x4466aa);
-    border.strokeRect(cx - 148, cy - 128, 296, 256);
+    border.strokeRect(cx - panelW / 2 + 2, cy - panelH / 2 + 2, panelW - 4, panelH - 4);
 
-    const title = s.add.text(cx, cy - 110, 'SETTINGS', {
+    const title = s.add.text(cx, cy - panelH / 2 + 22, 'SETTINGS', {
       fontSize: '20px', fontFamily: 'monospace', color: '#ffcc00',
     }).setOrigin(0.5).setDepth(302).setAlpha(0);
 
-    const masterLabel = s.add.text(cx - 120, cy - 70, 'Master', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#aaaacc',
-    }).setDepth(302).setAlpha(0);
+    const rows = [
+      { label: 'Master', vol: 'master' },
+      { label: 'SFX',    vol: 'sfx' },
+      { label: 'Music',  vol: 'music' },
+    ];
 
-    const masterSlider = this._createSlider(s, cx - 30, cy - 70, 140, window.soundManager.masterVolume, (v) => {
-      window.soundManager.setMasterVolume(v);
-    }, 302);
+    const sliders = [];
+    const pcts = [];
 
-    const sfxLabel = s.add.text(cx - 120, cy - 25, 'SFX', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#aaaacc',
-    }).setDepth(302).setAlpha(0);
+    rows.forEach((r, i) => {
+      const yy = cy - 55 + i * 48;
+      const sm = window.soundManager;
 
-    const sfxSlider = this._createSlider(s, cx - 30, cy - 25, 140, window.soundManager.sfxVolume, (v) => {
-      window.soundManager.setSfxVolume(v);
-    }, 302);
+      const lbl = s.add.text(cx - 140, yy, r.label, {
+        fontSize: '13px', fontFamily: 'monospace', color: '#aaaacc',
+      }).setDepth(302).setAlpha(0);
+
+      const pct = s.add.text(cx + 140, yy, sm.getVolumePercent(r.vol) + '%', {
+        fontSize: '11px', fontFamily: 'monospace', color: '#8888aa',
+      }).setOrigin(1, 0.5).setDepth(302).setAlpha(0);
+      pcts.push(pct);
+
+      const slider = this._createSlider(s, cx - 75, yy, 150, sm['getVolumePercent'](r.vol) / 100, (v) => {
+        sm['set' + r.label.charAt(0).toUpperCase() + r.label.slice(1) + 'Volume'](v);
+        pct.setText(sm.getVolumePercent(r.vol) + '%');
+      }, 302);
+
+      const testBtn = s.add.text(cx + 155, yy, '[TEST]', {
+        fontSize: '9px', fontFamily: 'monospace', color: '#6688aa',
+      }).setOrigin(0, 0.5).setDepth(303).setAlpha(0).setInteractive({ useHandCursor: true });
+      testBtn.on('pointerover', () => { testBtn.setColor('#88aacc'); sm.playMenuHover(); });
+      testBtn.on('pointerout', () => { testBtn.setColor('#6688aa'); });
+      testBtn.on('pointerdown', () => {
+        const sounds = ['playMenuSelect', 'playCastSpell', 'playLevelUp'];
+        sm[sounds[i]]();
+      });
+
+      sliders.push(slider);
+      this.elements.push(lbl, pct, testBtn,
+        slider.bg, slider.fill, slider.knob, slider.zone);
+    });
 
     const muteBtnBg = s.add.graphics().setDepth(302).setAlpha(0);
     muteBtnBg.fillStyle(0x444466);
-    muteBtnBg.fillRoundedRect(cx - 50, cy + 20, 100, 28, 6);
-    const muteBtnText = s.add.text(cx, cy + 34, window.soundManager.muted ? 'UNMUTE' : 'MUTE', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#ffffff',
+    muteBtnBg.fillRoundedRect(cx - 120, cy + 80, 100, 28, 6);
+    const muteBtnText = s.add.text(cx - 70, cy + 94, window.soundManager.muted ? 'UNMUTE' : 'MUTE', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(303).setAlpha(0);
-    const muteZone = s.add.zone(cx, cy + 34, 100, 28).setInteractive().setDepth(304).setAlpha(0);
+    const muteZone = s.add.zone(cx - 70, cy + 94, 100, 28).setInteractive().setDepth(304).setAlpha(0);
     muteZone.on('pointerdown', () => {
       const m = window.soundManager.toggleMute();
       muteBtnText.setText(m ? 'UNMUTE' : 'MUTE');
+      Object.keys(sliders).forEach(k => {
+        sliders[k].zone.emit('pointerdown', { x: sliders[k].x + sliders[k].w * window.soundManager['getVolumePercent'](rows[k] ? rows[k].vol : 'master') / 100, isDown: true });
+      });
       window.soundManager.playMenuSelect();
     });
     muteZone.on('pointerover', () => window.soundManager.playMenuHover());
 
-    const closeBg = s.add.graphics().setDepth(302).setAlpha(0);
-    closeBg.fillStyle(0x664444);
-    closeBg.fillRoundedRect(cx - 40, cy + 70, 80, 24, 6);
-    const closeText = s.add.text(cx, cy + 82, 'CLOSE', {
+    const fsBtnBg = s.add.graphics().setDepth(302).setAlpha(0);
+    const isFs = s.sys.game.scale.isFullscreen;
+    fsBtnBg.fillStyle(0x446644);
+    fsBtnBg.fillRoundedRect(cx + 20, cy + 80, 120, 28, 6);
+    const fsBtnText = s.add.text(cx + 80, cy + 94, isFs ? 'WINDOWED' : 'FULLSCREEN', {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(303).setAlpha(0);
-    const closeZone = s.add.zone(cx, cy + 82, 80, 24).setInteractive().setDepth(304).setAlpha(0);
+    const fsZone = s.add.zone(cx + 80, cy + 94, 120, 28).setInteractive().setDepth(304).setAlpha(0);
+    fsZone.on('pointerdown', () => {
+      if (s.sys.game.scale.isFullscreen) {
+        s.sys.game.scale.stopFullscreen();
+        fsBtnText.setText('FULLSCREEN');
+      } else {
+        s.sys.game.scale.startFullscreen();
+        fsBtnText.setText('WINDOWED');
+      }
+      window.soundManager.playMenuSelect();
+    });
+    fsZone.on('pointerover', () => window.soundManager.playMenuHover());
+
+    const closeBg = s.add.graphics().setDepth(302).setAlpha(0);
+    closeBg.fillStyle(0x664444);
+    closeBg.fillRoundedRect(cx - 35, cy + 120, 70, 24, 6);
+    const closeText = s.add.text(cx, cy + 132, 'CLOSE', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(303).setAlpha(0);
+    const closeZone = s.add.zone(cx, cy + 132, 70, 24).setInteractive().setDepth(304).setAlpha(0);
     closeZone.on('pointerdown', () => {
       window.soundManager.playMenuSelect();
       this.hide();
     });
     closeZone.on('pointerover', () => window.soundManager.playMenuHover());
 
-    this.elements = [
+    this.elements.push(
       bg, border, title,
-      masterLabel, masterSlider.bg, masterSlider.fill, masterSlider.knob, masterSlider.zone,
-      sfxLabel, sfxSlider.bg, sfxSlider.fill, sfxSlider.knob, sfxSlider.zone,
       muteBtnBg, muteBtnText, muteZone,
+      fsBtnBg, fsBtnText, fsZone,
       closeBg, closeText, closeZone,
-    ];
-    this._sliders = [masterSlider, sfxSlider];
+    );
+    this._sliders = sliders;
   }
 
   _createSlider(scene, x, y, w, val, onChange, depth) {

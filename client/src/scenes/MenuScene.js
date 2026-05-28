@@ -44,10 +44,25 @@ class MenuScene extends Phaser.Scene {
     this.tweens.add({ targets: title, alpha: 1, y: cy - 80, duration: 800, ease: 'Back.easeOut' });
     this.tweens.add({ targets: title2, alpha: 1, y: cy - 20, duration: 800, ease: 'Back.easeOut', delay: 200 });
 
-    const glow = this.add.graphics().setDepth(-1);
+    const titleGlow = this.add.graphics().setDepth(-1);
     this.tweens.add({
-      targets: glow, alpha: 0.6, duration: 1500, yoyo: true, repeat: -1,
+      targets: titleGlow, alpha: 0.6, duration: 1500, yoyo: true, repeat: -1,
     });
+
+    this.tweens.add({ targets: title, scaleX: 1.02, scaleY: 1.02, duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: title2, scaleX: 1.02, scaleY: 1.02, duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 200 });
+
+    this._orbitalParticles = [];
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      const dist = 80 + Math.random() * 30;
+      const pt = this.add.text(cx + Math.cos(angle) * dist, cy - 50 + Math.sin(angle) * dist, ['*', '+', '.', 'o'][Math.random() * 4 | 0], {
+        fontSize: '8px', fontFamily: 'monospace', color: ['#88ccff', '#ffcc00', '#88ff88', '#ff88cc'][Math.random() * 4 | 0],
+      }).setOrigin(0.5).setDepth(2).setAlpha(0.3);
+      this._orbitalParticles.push({ text: pt, angle, dist, speed: 0.3 + Math.random() * 0.3, offset: Math.random() * 100 });
+    }
+
+    window.soundManager.startAmbient();
 
     this.add.text(cx, cy + 30, 'A Fantasy Multiplayer RPG', {
       fontSize: '14px', fontFamily: 'monospace', color: '#666688',
@@ -184,8 +199,13 @@ class MenuScene extends Phaser.Scene {
     this._creditsBg = bg;
   }
 
+  shutdown() {
+    window.soundManager.stopAmbient();
+  }
+
   update(time, delta) {
     if (!this.stars) return;
+    const cx = 320, cy = 240;
     for (const s of this.stars) {
       s.drift += delta * 0.001;
       s.y -= s.speed * (delta * 0.06);
@@ -193,6 +213,15 @@ class MenuScene extends Phaser.Scene {
       if (s.y < -10) s.y = 490;
       if (s.x < -10) s.x = 650;
       if (s.x > 650) s.x = -10;
+    }
+    if (this._orbitalParticles) {
+      const t = delta * 0.001;
+      for (const p of this._orbitalParticles) {
+        p.angle += p.speed * t;
+        p.text.x = cx + Math.cos(p.angle) * p.dist;
+        p.text.y = cy - 50 + Math.sin(p.angle) * p.dist;
+        p.text.setAlpha(0.2 + Math.sin(Date.now() * 0.002 + p.offset) * 0.2);
+      }
     }
   }
 }

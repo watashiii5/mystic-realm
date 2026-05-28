@@ -192,7 +192,12 @@ class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer) => {
       if (this.isChatting || this.showingInventory) return;
       if (this.selectedSpell) {
-        window.soundManager.playCastSpell();
+        const fireSpells = ['fireball', 'meteor', 'flame_wave'];
+        const iceSpells = ['ice_shard', 'frost_nova'];
+        if (fireSpells.includes(this.selectedSpell)) window.soundManager.playFireCast();
+        else if (iceSpells.includes(this.selectedSpell)) window.soundManager.playIceCast();
+        else if (this.selectedSpell === 'heal') window.soundManager.playHeal();
+        else window.soundManager.playCastSpell();
         this.network.emit('cast_spell', {
           spell: this.selectedSpell,
           toX: Math.round(pointer.x),
@@ -206,6 +211,7 @@ class GameScene extends Phaser.Scene {
     });
 
     this.settingsPanel = new SettingsPanel(this);
+    window.soundManager.startAmbient();
     this.createVirtualControls();
   }
 
@@ -307,6 +313,7 @@ class GameScene extends Phaser.Scene {
     });
 
     self.network.on('zone_changed', (data) => {
+      window.soundManager.playZoneTransition();
       self.cameras.main.fadeOut(200);
       self.time.delayedCall(250, () => {
         self.currentZone = data.zone;
@@ -453,8 +460,9 @@ class GameScene extends Phaser.Scene {
     });
 
     self.network.on('item_removed', (data) => {
-      window.soundManager.playItemPickup();
       const gs = self.groundItemSprites[data.itemId];
+      if (gs && gs.glow) window.soundManager.playRareItemPickup();
+      else window.soundManager.playItemPickup();
       if (gs) {
         if (self.playerSprite && !self.dead) {
           const fly = self.add.circle(gs.sprite.x, gs.sprite.y, 4, gs.sprite.fillColor || 0xffffff, 0.7).setDepth(20);
@@ -1194,6 +1202,7 @@ class GameScene extends Phaser.Scene {
   respawn() {
     if (this.dead) {
       this.dead = false;
+      window.soundManager.playRespawn();
       this.network.emit('respawn');
       if (this.playerSprite) {
         this.playerSprite.setAlpha(0.3);
@@ -1207,8 +1216,8 @@ class GameScene extends Phaser.Scene {
 
   toggleInventory() {
     this.showingInventory = !this.showingInventory;
-    if (this.showingInventory) this.showInventory();
-    else this.hideInventory();
+    if (this.showingInventory) { window.soundManager.playInventoryOpen(); this.showInventory(); }
+    else { window.soundManager.playInventoryClose(); this.hideInventory(); }
   }
 
   showInventory() {
@@ -1448,7 +1457,9 @@ class GameScene extends Phaser.Scene {
     const moving = dx !== 0 || dy !== 0;
 
     const sprinting = (this.keys.SHIFT.isDown || this.touchSprint) && this.myStats.mp > 0;
+    const wasSprinting = this.isSprinting;
     this.isSprinting = sprinting && moving;
+    if (this.isSprinting && !wasSprinting) window.soundManager.playSprint();
 
     if (moving) {
       if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
@@ -1720,5 +1731,9 @@ class GameScene extends Phaser.Scene {
 
   sendChatMessage(name, text, color) {
     this.addChatMessage(name, text, color);
+  }
+
+  shutdown() {
+    window.soundManager.stopAmbient();
   }
 }
