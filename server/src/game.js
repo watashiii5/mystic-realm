@@ -4,11 +4,17 @@ const MAP_ROWS = 15;
 
 const STAT_BASE = { mage: { hp: 80, mp: 100, atk: 12, def: 8, spd: 10 },
   sorcerer: { hp: 60, mp: 120, atk: 18, def: 5, spd: 12 },
-  druid: { hp: 100, mp: 80, atk: 8, def: 12, spd: 8 } };
+  druid: { hp: 100, mp: 80, atk: 8, def: 12, spd: 8 },
+  warrior: { hp: 130, mp: 40, atk: 16, def: 14, spd: 8 },
+  archer: { hp: 70, mp: 90, atk: 20, def: 4, spd: 14 },
+  summoner: { hp: 75, mp: 110, atk: 10, def: 6, spd: 10 } };
 
 const STAT_PER_LEVEL = { mage: { hp: 12, mp: 14, atk: 2, def: 1.5 },
   sorcerer: { hp: 8, mp: 18, atk: 3, def: 1 },
-  druid: { hp: 16, mp: 10, atk: 1.5, def: 2 } };
+  druid: { hp: 16, mp: 10, atk: 1.5, def: 2 },
+  warrior: { hp: 20, mp: 5, atk: 3, def: 2.5 },
+  archer: { hp: 10, mp: 12, atk: 3.5, def: 1 },
+  summoner: { hp: 10, mp: 16, atk: 1.5, def: 1.5 } };
 
 const SPELLS = {
   magic_bolt: { name: 'Magic Bolt', cost: 5, dmg: 10, desc: 'Basic magic projectile', speed: 300, color: 0x88ccff, radius: 4, aoe: false },
@@ -29,6 +35,9 @@ const CLASS_STARTING_SPELLS = {
   mage: ['magic_bolt', 'heal'],
   sorcerer: ['fireball'],
   druid: ['heal', 'summon_wolf'],
+  warrior: ['magic_bolt', 'gale'],
+  archer: ['magic_bolt', 'ice_shard'],
+  summoner: ['magic_bolt', 'heal'],
 };
 
 const ZONE_MAPS = {};
@@ -166,6 +175,8 @@ const ITEMS = {
   boss_ring: { name: 'Aether Ring', type: 'accessory', tier: 5, stats: { hp: 40, mp: 30, atk: 5 }, desc: 'The Aether Lord\'s own ring' },
   health_pot: { name: 'Health Potion', type: 'consumable', tier: 0, stats: { heal: 40 }, desc: 'Restores 40 HP' },
   mana_pot: { name: 'Mana Potion', type: 'consumable', tier: 0, stats: { mana: 30 }, desc: 'Restores 30 MP' },
+  greater_health_pot: { name: 'Greater Health Potion', type: 'consumable', tier: 1, stats: { heal: 80 }, desc: 'Restores 80 HP' },
+  greater_mana_pot: { name: 'Greater Mana Potion', type: 'consumable', tier: 1, stats: { mana: 60 }, desc: 'Restores 60 MP' },
 };
 
 const SPELL_SCROLLS = {
@@ -181,11 +192,11 @@ const SPELL_SCROLLS = {
 };
 
 const LOOT_TABLES = {
-  meadow: { items: [{ item: 'starter_robe', weight: 20 }, { item: 'wooden_staff', weight: 20 }, { item: 'starter_ring', weight: 15 }, { item: 'health_pot', weight: 30 }, { item: 'mana_pot', weight: 15 }], scrolls: null },
-  forest: { items: [{ item: 'forest_staff', weight: 15 }, { item: 'leaf_cloak', weight: 20 }, { item: 'vine_ring', weight: 15 }, { item: 'health_pot', weight: 25 }, { item: 'mana_pot', weight: 20 }], scrolls: ['fireball', 'ice_shard', 'gale'] },
-  caves: { items: [{ item: 'crystal_staff', weight: 15 }, { item: 'crystal_robe', weight: 20 }, { item: 'crystal_ring', weight: 15 }, { item: 'health_pot', weight: 25 }, { item: 'mana_pot', weight: 20 }], scrolls: ['stone_wall', 'flame_wave', 'poison_cloud'] },
-  ruins: { items: [{ item: 'ancient_staff', weight: 18 }, { item: 'ancient_robe', weight: 22 }, { item: 'soul_ring', weight: 18 }, { item: 'health_pot', weight: 22 }, { item: 'mana_pot', weight: 20 }], scrolls: ['teleport', 'frost_nova'] },
-  tower: { items: [{ item: 'legendary_staff', weight: 20 }, { item: 'legendary_robe', weight: 25 }, { item: 'boss_ring', weight: 15 }, { item: 'health_pot', weight: 20 }, { item: 'mana_pot', weight: 20 }], scrolls: ['meteor'] },
+  meadow: { items: [{ item: 'starter_robe', weight: 18 }, { item: 'wooden_staff', weight: 18 }, { item: 'starter_ring', weight: 14 }, { item: 'health_pot', weight: 30 }, { item: 'mana_pot', weight: 20 }], scrolls: null },
+  forest: { items: [{ item: 'forest_staff', weight: 12 }, { item: 'leaf_cloak', weight: 16 }, { item: 'vine_ring', weight: 12 }, { item: 'health_pot', weight: 22 }, { item: 'mana_pot', weight: 18 }, { item: 'greater_health_pot', weight: 10 }, { item: 'greater_mana_pot', weight: 10 }], scrolls: ['fireball', 'ice_shard', 'gale'] },
+  caves: { items: [{ item: 'crystal_staff', weight: 12 }, { item: 'crystal_robe', weight: 16 }, { item: 'crystal_ring', weight: 12 }, { item: 'greater_health_pot', weight: 20 }, { item: 'greater_mana_pot', weight: 18 }, { item: 'health_pot', weight: 12 }, { item: 'mana_pot', weight: 10 }], scrolls: ['stone_wall', 'flame_wave', 'poison_cloud'] },
+  ruins: { items: [{ item: 'ancient_staff', weight: 15 }, { item: 'ancient_robe', weight: 18 }, { item: 'soul_ring', weight: 15 }, { item: 'greater_health_pot', weight: 18 }, { item: 'greater_mana_pot', weight: 16 }, { item: 'health_pot', weight: 10 }, { item: 'mana_pot', weight: 8 }], scrolls: ['teleport', 'frost_nova'] },
+  tower: { items: [{ item: 'legendary_staff', weight: 18 }, { item: 'legendary_robe', weight: 20 }, { item: 'boss_ring', weight: 14 }, { item: 'greater_health_pot', weight: 18 }, { item: 'greater_mana_pot', weight: 16 }, { item: 'health_pot', weight: 8 }, { item: 'mana_pot', weight: 6 }], scrolls: ['meteor'] },
 };
 
 function rollLoot(zone) {
@@ -198,7 +209,7 @@ function rollLoot(zone) {
     roll -= entry.weight;
     if (roll <= 0) { item = entry.item; break; }
   }
-  if (table.scrolls && Math.random() < 0.2) {
+  if (table.scrolls && Math.random() < 0.35) {
     const scrollKey = table.scrolls[Math.floor(Math.random() * table.scrolls.length)];
     return { type: 'scroll', spell: scrollKey, itemKey: scrollKey + '_scroll', name: SPELL_SCROLLS[scrollKey]?.name || 'Spell Scroll' };
   }

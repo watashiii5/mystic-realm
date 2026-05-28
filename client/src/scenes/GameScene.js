@@ -5,18 +5,32 @@ const SPEED = 160;
 const MOVE_THROTTLE = 50;
 const TILE_TEXTURES = ['tile_0', 'tile_1', 'tile_2', 'tile_3', 'tile_4', 'tile_5', 'tile_6', 'tile_7', 'tile_8', 'tile_9', 'tile_10', 'tile_11', 'tile_12'];
 
-const SPELL_BAR_COLORS = {
-  magic_bolt: 0x88ccff, heal: 0x44ff44, fireball: 0xff4400,
-  ice_shard: 0x44ccff, stone_wall: 0x886644, gale: 0xccffcc,
-  flame_wave: 0xff6600, summon_wolf: 0xcc8844, teleport: 0xcc44ff,
-  meteor: 0xff4400, frost_nova: 0x88ddff, poison_cloud: 0x66ff66,
+const ITEM_NAMES = {
+  wooden_staff: 'Wooden Staff', starter_robe: 'Starter Robe', starter_ring: 'Starter Ring',
+  forest_staff: 'Forest Staff', leaf_cloak: 'Leaf Cloak', vine_ring: 'Vine Ring',
+  crystal_staff: 'Crystal Staff', crystal_robe: 'Crystal Robe', crystal_ring: 'Crystal Ring',
+  ancient_staff: 'Ancient Staff', ancient_robe: 'Ancient Robe', soul_ring: 'Soul Ring',
+  legendary_staff: 'Legendary Staff', legendary_robe: 'Legendary Robe', boss_ring: 'Aether Ring',
+  health_pot: 'Health Potion', mana_pot: 'Mana Potion',
+  greater_health_pot: 'Greater Health Potion', greater_mana_pot: 'Greater Mana Potion',
 };
 
+const ITEM_TIERS = {
+  health_pot: 0, mana_pot: 0, greater_health_pot: 1, greater_mana_pot: 1,
+  wooden_staff: 1, starter_robe: 1, starter_ring: 1,
+  forest_staff: 2, leaf_cloak: 2, vine_ring: 2,
+  crystal_staff: 3, crystal_robe: 3, crystal_ring: 3,
+  ancient_staff: 4, ancient_robe: 4, soul_ring: 4,
+  legendary_staff: 5, legendary_robe: 5, boss_ring: 5,
+};
+const RARITY_COLORS = { 0: '#aaaaaa', 1: '#ffffff', 2: '#44ff44', 3: '#44ccff', 4: '#cc44ff', 5: '#ff8800' };
+const RARITY_NAMES = { 0: 'Common', 1: 'Common', 2: 'Uncommon', 3: 'Rare', 4: 'Epic', 5: 'Legendary' };
+
 const SPELL_NAMES = {
-  magic_bolt: 'Bolt', heal: 'Heal', fireball: 'Fire',
-  ice_shard: 'Ice', stone_wall: 'Wall', gale: 'Gale',
-  flame_wave: 'FlameW', summon_wolf: 'Wolf', teleport: 'TP',
-  meteor: 'Meteor', frost_nova: 'Nova', poison_cloud: 'Poison',
+  magic_bolt: 'Magic Bolt', heal: 'Heal', fireball: 'Fireball',
+  ice_shard: 'Ice Shard', stone_wall: 'Stone Wall', gale: 'Gale',
+  flame_wave: 'Flame Wave', summon_wolf: 'Summon Wolf', teleport: 'Teleport',
+  meteor: 'Meteor', frost_nova: 'Frost Nova', poison_cloud: 'Poison Cloud',
 };
 
 class GameScene extends Phaser.Scene {
@@ -43,7 +57,15 @@ class GameScene extends Phaser.Scene {
     this.isChatting = false;
     this.chatTexts = [];
     this.network = null;
-    this.myStats = { hp: 100, maxHp: 100, mp: 50, maxMp: 50, atk: 10, def: 5, level: 1 };
+    const baseStats = {
+      mage: { hp: 80, maxHp: 80, mp: 100, maxMp: 100, atk: 12, def: 8 },
+      sorcerer: { hp: 60, maxHp: 60, mp: 120, maxMp: 120, atk: 18, def: 5 },
+      druid: { hp: 100, maxHp: 100, mp: 80, maxMp: 80, atk: 8, def: 12 },
+      warrior: { hp: 130, maxHp: 130, mp: 40, maxMp: 40, atk: 16, def: 14 },
+      archer: { hp: 70, maxHp: 70, mp: 90, maxMp: 90, atk: 20, def: 4 },
+      summoner: { hp: 75, maxHp: 75, mp: 110, maxMp: 110, atk: 10, def: 6 },
+    };
+    this.myStats = { ...(baseStats[this.playerClass] || baseStats.mage), level: 1, xp: 0 };
     this.spells = [];
     this.inventory = [];
     this.equipped = {};
@@ -54,6 +76,8 @@ class GameScene extends Phaser.Scene {
     this.dead = false;
     this.damageTexts = [];
     this.progressMonstersKilled = 0;
+    this.statPoints = 0;
+    this.allocatedStats = { hp: 0, mp: 0, atk: 0, def: 0 };
     this.zonesVisited = { meadow: true };
     this.chatPool = [];
     this.questShown = false;
@@ -62,13 +86,16 @@ class GameScene extends Phaser.Scene {
     this.facingDir = 'down';
     this.walkBob = 0;
     this.walkCycle = 0;
-    this.displayHp = 100;
-    this.displayMp = 50;
+    this.walkFrame = 0;
+    this.displayHp = this.myStats.maxHp;
+    this.displayMp = this.myStats.maxMp;
     this.displayXp = 0;
     this.chatBg = null;
     this.chatAnims = [];
     this.targetRing = null;
     this.castEffects = [];
+    this.equipmentAura = null;
+    this.lastEquippedHash = '';
   }
 
   create() {
@@ -151,19 +178,39 @@ class GameScene extends Phaser.Scene {
       }
     });
 
-    this.input.on('pointermove', (pointer) => {
-      if (this.showingInventory && this.dragItem) {
-        this.dragItem.sprite.setPosition(pointer.x, pointer.y);
-      }
-    });
+    this.createVirtualControls();
+  }
 
-    this.input.on('pointerup', (pointer) => {
-      if (this.dragItem) {
-        this.dragItem.sprite.destroy();
-        this.dragItem = null;
-        this.showInventory();
-      }
-    });
+  createVirtualControls() {
+    this.touch = { up: false, down: false, left: false, right: false };
+    const isTouch = this.sys.game.device.input.touch;
+    if (!isTouch) return;
+
+    const btn = (label, x, y, w, h, cb) => {
+      const bg = this.add.graphics().setDepth(250).setAlpha(0.4);
+      bg.fillStyle(0x333333); bg.fillRoundedRect(x, y, w, h, 6);
+      bg.lineStyle(1, 0x888888); bg.strokeRoundedRect(x, y, w, h, 6);
+      const t = this.add.text(x + w/2, y + h/2, label, { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5).setDepth(251);
+      const zone = this.add.zone(x + w/2, y + h/2, w, h).setInteractive().setDepth(252);
+      zone.on('pointerdown', () => cb(true));
+      zone.on('pointerup', () => cb(false));
+      zone.on('pointerout', () => cb(false));
+    };
+
+    btn('\u25B2', 8, 370, 40, 40, (v) => { this.touch.up = v; });
+    btn('\u25BC', 8, 416, 40, 40, (v) => { this.touch.down = v; });
+    btn('\u25C0', 4, 408, 32, 32, (v) => { this.touch.left = v; });
+    btn('\u25B6', 52, 408, 32, 32, (v) => { this.touch.right = v; });
+
+    btn('I', 588, 370, 44, 40, () => { if (!this.showingInventory) this.toggleInventory(); });
+    btn('H', 588, 416, 44, 40, () => { if (!this.showingHelp) this.toggleHelp(); });
+
+    for (let i = 0; i < 5; i++) {
+      const sx = 64 + i * 56;
+      btn('' + (i+1), sx, 440, 48, 32, () => { if (this.spells[i]) this.selectSpell(i); });
+    }
+
+    btn('R', 588, 324, 44, 32, () => { if (this.dead) this.respawn(); });
   }
 
   setupNetwork() {
@@ -181,7 +228,10 @@ class GameScene extends Phaser.Scene {
     self.network.on('you_joined', (data) => {
       self.myId = data.id;
       self.myStats = data.player;
+      self.statPoints = data.player.sp || 0;
+      self.allocatedStats = data.player.as || { hp: 0, mp: 0, atk: 0, def: 0 };
       self.createPlayer();
+      self.updateEquipmentVisuals();
       self.createHUD();
       self.createSpellBar();
       if (self.myStats.xp !== undefined) self.updateXPBar(self.myStats.xp);
@@ -229,6 +279,9 @@ class GameScene extends Phaser.Scene {
         self.clearProjectiles();
         self.clearGroundItems();
         self.targetMonster = null;
+        if (self.equipmentAura) self.equipmentAura.clear();
+        self.lastEquippedHash = '';
+        self.updateEquipmentVisuals();
         self.zoneLabel = data.zoneDef?.name || data.zone;
         if (self.zoneText) self.zoneText.setText(self.zoneLabel);
         if (data.zoneDef?.lore) self.showZoneLore(data.zoneDef.name || data.zone, data.zoneDef.lore, data.zoneDef.color || '#88ccff');
@@ -303,7 +356,7 @@ class GameScene extends Phaser.Scene {
           for (let i = 0; i < 3; i++) {
             const px = data.x + (Math.random() - 0.5) * 16;
             const py = data.y + (Math.random() - 0.5) * 16;
-            const pt = self.add.text(px, py, ['*', '+', '.'][Math.random() * 3 | 0], { fontSize: '8px', fontFamily: 'monospace', color: colors[Math.random() * 4 | 0] }).setOrigin(0.5).setDepth(100);
+            const pt = self.add.text(px, py, ['*', '+', '.'][Math.random() * 3 | 0], { fontSize: '10px', fontFamily: 'monospace', color: colors[Math.random() * 4 | 0] }).setOrigin(0.5).setDepth(100);
             self.tweens.add({ targets: pt, y: py - 20 + (Math.random() - 0.5) * 10, alpha: 0, duration: 400, onComplete: () => pt.destroy() });
           }
           const impact = self.add.circle(data.x, data.y, 3, 0xffffff, 0.6).setDepth(12);
@@ -325,7 +378,7 @@ class GameScene extends Phaser.Scene {
 
     self.network.on('item_removed', (data) => {
       const gs = self.groundItemSprites[data.itemId];
-      if (gs) { gs.destroy(); delete self.groundItemSprites[data.itemId]; }
+      if (gs) { gs.sprite.destroy(); if (gs.zone) gs.zone.destroy(); if (gs.label) gs.label.destroy(); if (gs.pulse) gs.pulse.stop(); delete self.groundItemSprites[data.itemId]; }
     });
 
     self.network.on('ground_items', (items) => {
@@ -335,7 +388,10 @@ class GameScene extends Phaser.Scene {
     self.network.on('inventory_update', (data) => {
       self.inventory = data.inventory || [];
       self.spells = data.spells || [];
-      if (data.equipped) self.equipped = data.equipped;
+      if (data.equipped) {
+        self.equipped = data.equipped;
+        self.updateEquipmentVisuals();
+      }
       self.updateSpellBar();
       if (self.showingInventory) self.showInventory();
     });
@@ -347,6 +403,8 @@ class GameScene extends Phaser.Scene {
       if (data.mm !== undefined) self.myStats.maxMp = data.mm;
       if (data.atk !== undefined) self.myStats.atk = data.atk;
       if (data.def !== undefined) self.myStats.def = data.def;
+      if (data.sp !== undefined) self.statPoints = data.sp;
+      if (data.as !== undefined) self.allocatedStats = data.as;
       self.updateHUD();
     });
 
@@ -389,13 +447,48 @@ class GameScene extends Phaser.Scene {
     this.facingDir = 'down';
     this.walkBob = 0;
     this.walkCycle = 0;
+    this.equipmentAura = this.add.graphics().setDepth(9);
+    this.lastEquippedHash = '';
+  }
+
+  updateEquipmentVisuals() {
+    if (!this.equipmentAura) return;
+    const equippedKeys = [this.equipped.weapon, this.equipped.armor, this.equipped.accessory].filter(Boolean).sort().join(',');
+    if (equippedKeys === this.lastEquippedHash) return;
+    this.lastEquippedHash = equippedKeys;
+
+    this.equipmentAura.clear();
+    let highestTier = 0;
+    for (const key of [this.equipped.weapon, this.equipped.armor, this.equipped.accessory]) {
+      if (key && ITEM_TIERS[key] !== undefined) {
+        highestTier = Math.max(highestTier, ITEM_TIERS[key]);
+      }
+    }
+    if (highestTier < 1) return;
+
+    const auraColors = { 1: 0xffffff, 2: 0x44ff44, 3: 0x44ccff, 4: 0xcc44ff, 5: 0xff8800 };
+    const col = auraColors[highestTier] || 0xffffff;
+    this.equipmentAura.fillStyle(col, 0.08);
+    this.equipmentAura.fillCircle(0, 0, 16);
+    this.equipmentAura.lineStyle(1, col, 0.25);
+    this.equipmentAura.strokeCircle(0, 0, 18);
+
+    const glowRing = this.add.graphics().setDepth(9);
+    glowRing.lineStyle(2, col, 0.5);
+    glowRing.strokeCircle(0, 0, 20);
+    if (this.playerSprite) glowRing.setPosition(this.playerSprite.x, this.playerSprite.y);
+    this.tweens.add({ targets: glowRing, scaleX: 1.5, scaleY: 1.5, alpha: 0, duration: 800, onComplete: () => glowRing.destroy() });
+
+    if (this.playerSprite) {
+      this.equipmentAura.setPosition(this.playerSprite.x, this.playerSprite.y);
+    }
   }
 
   createHUD() {
     this.hudContainer = this.add.container(0, 0).setDepth(50);
     const g = this.add.graphics();
     g.fillStyle(0x000000, 0.6);
-    g.fillRect(4, 4, 180, 72);
+    g.fillRect(4, 4, 180, 82);
     this.hudContainer.add(g);
 
     const clsLabel = this.playerClass.charAt(0).toUpperCase() + this.playerClass.slice(1);
@@ -420,16 +513,18 @@ class GameScene extends Phaser.Scene {
     this.xpBar = this.add.graphics();
     this.hudContainer.add(this.xpBar);
 
-    this.hpText = this.add.text(134, 24, '', { fontSize: '9px', fontFamily: 'monospace', color: '#ffffff' });
+    this.hpText = this.add.text(134, 24, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff' });
     this.hudContainer.add(this.hpText);
-    this.mpText = this.add.text(134, 38, '', { fontSize: '9px', fontFamily: 'monospace', color: '#ffffff' });
+    this.mpText = this.add.text(134, 38, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff' });
     this.hudContainer.add(this.mpText);
 
-    this.lvlText = this.add.text(10, 62, 'Lv.1', { fontSize: '9px', fontFamily: 'monospace', color: '#aaaaaa' });
+    this.lvlText = this.add.text(10, 62, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa' });
     this.hudContainer.add(this.lvlText);
 
-    this.atkDefText = this.add.text(60, 62, 'ATK:10 DEF:5', { fontSize: '9px', fontFamily: 'monospace', color: '#aaaaaa' });
+    this.atkDefText = this.add.text(60, 62, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa' });
     this.hudContainer.add(this.atkDefText);
+    this.statPointsText = this.add.text(10, 72, '', { fontSize: '9px', fontFamily: 'monospace', color: '#ffcc00' });
+    this.hudContainer.add(this.statPointsText);
 
     this.zoneText = this.add.text(320, 4, 'Meadow', { fontSize: '12px', fontFamily: 'monospace', color: '#88ccff', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
     this.spellBarContainer = this.add.container(0, 0).setDepth(50);
@@ -439,7 +534,7 @@ class GameScene extends Phaser.Scene {
     this.progressText = this.add.text(320, 16, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
     this.updateProgressText();
 
-    this.questText = this.add.text(480, 36, '', { fontSize: '9px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 1, lineSpacing: 2, wordWrap: { width: 150 } }).setDepth(50).setAlpha(0.8);
+    this.questText = this.add.text(478, 36, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 1, lineSpacing: 3, wordWrap: { width: 155 } }).setDepth(50).setAlpha(0.85);
 
     this.zoneLoreText = null;
     this.zoneLoreTimer = 0;
@@ -450,6 +545,7 @@ class GameScene extends Phaser.Scene {
   updateHUD() {
     if (!this.hpBar) return;
 
+    if (!this.myStats.maxHp || !this.myStats.maxMp) return;
     this.displayHp += (this.myStats.hp - this.displayHp) * 0.15;
     this.displayMp += (this.myStats.mp - this.displayMp) * 0.15;
 
@@ -471,6 +567,7 @@ class GameScene extends Phaser.Scene {
 
     this.lvlText.setText('Lv.' + this.myStats.level);
     this.atkDefText.setText('ATK:' + this.myStats.atk + ' DEF:' + this.myStats.def);
+    this.statPointsText.setText('Points: ' + (this.statPoints || 0));
   }
 
   updateXPBar(xp) {
@@ -505,7 +602,7 @@ class GameScene extends Phaser.Scene {
       const spellName = this.add.text(90 + i * 102, 426, '', { fontSize: '11px', fontFamily: 'monospace', color: '#ffffff' });
       this.spellBarContainer.add(spellName);
 
-      const spellCost = this.add.text(90 + i * 102, 440, '', { fontSize: '9px', fontFamily: 'monospace', color: '#8888ff' });
+      const spellCost = this.add.text(90 + i * 102, 439, '', { fontSize: '10px', fontFamily: 'monospace', color: '#8888ff' });
       this.spellBarContainer.add(spellCost);
 
       const highlight = this.add.graphics();
@@ -523,8 +620,7 @@ class GameScene extends Phaser.Scene {
       const slot = this.spellSlots[i];
       const spellKey = this.spells[i];
       if (spellKey) {
-        const names = { magic_bolt: 'Bolt', heal: 'Heal', fireball: 'Fire', ice_shard: 'Ice', stone_wall: 'Wall', gale: 'Gale', flame_wave: 'FlameW', summon_wolf: 'Wolf', teleport: 'TP', meteor: 'Meteor', frost_nova: 'Nova', poison_cloud: 'Poison' };
-        slot.name.setText(names[spellKey] || spellKey);
+        slot.name.setText(SPELL_NAMES[spellKey] || spellKey);
         const cost = costs[spellKey] || 5;
         const canCast = this.myStats && this.myStats.mp >= cost;
         slot.cost.setText('MP:' + cost);
@@ -548,7 +644,7 @@ class GameScene extends Phaser.Scene {
       this.selectedSpell = this.selectedSpell === this.spells[idx] ? null : this.spells[idx];
       this.updateSpellBar();
       if (this.selectedSpell) {
-        this.addChatMessage('System', 'Selected: ' + this.selectedSpell + ' - Click to cast!', '#88ccff');
+        this.addChatMessage('System', 'Selected: ' + (SPELL_NAMES[this.selectedSpell] || this.selectedSpell) + ' - Click to cast!', '#88ccff');
       }
     }
   }
@@ -840,36 +936,37 @@ class GameScene extends Phaser.Scene {
   addGroundItemSprite(item) {
     if (this.groundItemSprites[item.id]) return;
     const g = this.add.graphics().setDepth(5);
-    const iname = (item.n || item.name || '').toLowerCase();
-    let col = 0xffcc00;
-    if (iname.includes('health') || item.k === 'health_pot') col = 0xff4444;
-    else if (iname.includes('mana') || item.k === 'mana_pot') col = 0x4444ff;
-    else if (iname.includes('forest')) col = 0x44aa44;
-    else if (iname.includes('crystal')) col = 0xaa66ff;
-    else if (iname.includes('ancient')) col = 0xff8800;
-    else if (iname.includes('legendary') || iname.includes('aether')) col = 0xffcc00;
-    else if (iname.includes('scroll')) col = 0x88ddff;
-    g.fillStyle(col);
-    g.fillCircle(0, 0, 4);
-    g.fillStyle(0xffffff, 0.5);
+    const itemKey = item.k || '';
+    const tier = ITEM_TIERS[itemKey] !== undefined ? ITEM_TIERS[itemKey] : 1;
+    const rarityCol = parseInt(RARITY_COLORS[tier].replace('#', ''), 16);
+    const isScroll = itemKey.includes('_scroll');
+
+    g.fillStyle(isScroll ? 0x88ddff : rarityCol);
+    g.fillCircle(0, 0, 6);
+    g.fillStyle(0xffffff, 0.4);
     g.fillCircle(-1, -1, 2);
+    g.lineStyle(1, rarityCol, 0.6);
+    g.strokeCircle(0, 0, 8);
     g.setPosition(item.x, item.y);
 
-    const clickZone = this.add.zone(item.x, item.y, 16, 16).setInteractive().setDepth(5);
+    const clickZone = this.add.zone(item.x, item.y, 22, 22).setInteractive().setDepth(5);
     const iid = item.id;
     clickZone.on('pointerdown', () => {
       this.network.emit('pickup_item', { itemId: iid });
     });
+    const label = this.add.text(item.x, item.y - 14, isScroll ? 'Scroll' : ITEM_NAMES[itemKey] || 'Item', {
+      fontSize: '9px', fontFamily: 'monospace', color: RARITY_COLORS[tier], stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(6).setAlpha(0.8);
 
     const pulse = this.tweens.add({
       targets: g,
-      alpha: { from: 0.6, to: 1 },
+      alpha: { from: 0.5, to: 1 },
       duration: 800,
       yoyo: true,
       repeat: -1,
     });
 
-    this.groundItemSprites[item.id] = { sprite: g, zone: clickZone, pulse };
+    this.groundItemSprites[item.id] = { sprite: g, zone: clickZone, pulse, label };
   }
 
   updateGroundItems(items) {
@@ -883,9 +980,11 @@ class GameScene extends Phaser.Scene {
     }
     for (const id in this.groundItemSprites) {
       if (!activeIds.has(parseInt(id))) {
-        this.groundItemSprites[id].sprite.destroy();
-        this.groundItemSprites[id].zone.destroy();
-        if (this.groundItemSprites[id].pulse) this.groundItemSprites[id].pulse.stop();
+        const gis = this.groundItemSprites[id];
+        gis.sprite.destroy();
+        gis.zone.destroy();
+        if (gis.label) gis.label.destroy();
+        if (gis.pulse) gis.pulse.stop();
         delete this.groundItemSprites[id];
       }
     }
@@ -893,9 +992,11 @@ class GameScene extends Phaser.Scene {
 
   clearGroundItems() {
     for (const id in this.groundItemSprites) {
-      this.groundItemSprites[id].sprite.destroy();
-      this.groundItemSprites[id].zone.destroy();
-      if (this.groundItemSprites[id].pulse) this.groundItemSprites[id].pulse.stop();
+      const gis = this.groundItemSprites[id];
+      gis.sprite.destroy();
+      gis.zone.destroy();
+      if (gis.label) gis.label.destroy();
+      if (gis.pulse) gis.pulse.stop();
     }
     this.groundItemSprites = {};
   }
@@ -990,30 +1091,50 @@ class GameScene extends Phaser.Scene {
       const label = this.add.text(50, 62 + i * 18, slotLabels[i], { fontSize: '10px', fontFamily: 'monospace', color: '#cccccc' }).setDepth(150);
       this.inventoryElements.push(label);
       const eq = this.equipped[slots[i]];
-      const val = eq ? (eq.length > 16 ? eq.slice(0, 16) + '..' : eq) : '(empty)';
+      const eqName = eq ? (ITEM_NAMES[eq] || eq) : '(empty)';
+      const val = eqName.length > 20 ? eqName.slice(0, 20) + '..' : eqName;
       const eText = this.add.text(120, 62 + i * 18, val, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', wordWrap: { width: 200 } }).setDepth(150);
       this.inventoryElements.push(eText);
     }
 
-    const invTitle = this.add.text(50, 120, 'Items (' + Math.min(this.inventory.length, 20) + '):', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
+    if (this.statPoints > 0) {
+      const spTitle = this.add.text(50, 116, 'Stat Points: ' + this.statPoints, { fontSize: '11px', fontFamily: 'monospace', color: '#ffcc00' }).setDepth(150);
+      this.inventoryElements.push(spTitle);
+      const stats = [{k:'hp',l:'HP +10'},{k:'mp',l:'MP +8'},{k:'atk',l:'ATK +2'},{k:'def',l:'DEF +2'}];
+      for (let si = 0; si < 4; si++) {
+        const sx = 50 + si * 75;
+        const bg = this.add.graphics().setDepth(151);
+        bg.fillStyle(0x444422); bg.fillRect(sx, 128, 68, 16);
+        bg.setInteractive(new Phaser.Geom.Rectangle(sx, 128, 68, 16), Phaser.Geom.Rectangle.Contains);
+        const sk = stats[si].k;
+        bg.on('pointerdown', () => { this.network.emit('allocate_stat', { stat: sk }); this.showInventory(); });
+        this.inventoryElements.push(bg);
+        const t = this.add.text(sx + 34, 136, stats[si].l, { fontSize: '9px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(152);
+        this.inventoryElements.push(t);
+      }
+    }
+
+    const invTitle = this.add.text(50, 120 + (this.statPoints > 0 ? 28 : 0), 'Items (' + Math.min(this.inventory.length, 20) + '):', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
     this.inventoryElements.push(invTitle);
 
     const maxShow = Math.min(this.inventory.length, 20);
     const itemsPerRow = 3;
+    const invOffset = this.statPoints > 0 ? 28 : 0;
     for (let i = 0; i < maxShow; i++) {
       const itemKey = this.inventory[i];
       const col = i % itemsPerRow;
       const row = Math.floor(i / itemsPerRow);
       const ix = 50 + col * 175;
-      const iy = 140 + row * 32;
+      const iy = 140 + invOffset + row * 32;
 
       const bg = this.add.graphics().setDepth(150);
       bg.fillStyle(0x444444); bg.fillRect(ix, iy, 165, 26);
       bg.lineStyle(1, 0x666666); bg.strokeRect(ix, iy, 165, 26);
       this.inventoryElements.push(bg);
 
-      const shortKey = itemKey.length > 14 ? itemKey.slice(0, 14) + '..' : itemKey;
-      const iText = this.add.text(ix + 4, iy + 1, shortKey, { fontSize: '9px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(150);
+      const displayName = ITEM_NAMES[itemKey] || itemKey;
+      const shortKey = displayName.length > 18 ? displayName.slice(0, 18) + '..' : displayName;
+      const iText = this.add.text(ix + 4, iy + 1, shortKey, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(150);
       this.inventoryElements.push(iText);
 
       const useBg = this.add.graphics().setDepth(151);
@@ -1023,7 +1144,7 @@ class GameScene extends Phaser.Scene {
       useBg.on('pointerdown', () => { this.network.emit('use_item', { itemKey: this.inventory[iid] }); this.showInventory(); });
       this.inventoryElements.push(useBg);
 
-      const useText = this.add.text(ix + 27, iy + 15, 'Use', { fontSize: '8px', fontFamily: 'monospace', color: '#88ff88' }).setOrigin(0.5).setDepth(152);
+      const useText = this.add.text(ix + 27, iy + 15, 'Use', { fontSize: '10px', fontFamily: 'monospace', color: '#88ff88' }).setOrigin(0.5).setDepth(152);
       this.inventoryElements.push(useText);
 
       const eqBg = this.add.graphics().setDepth(151);
@@ -1033,7 +1154,7 @@ class GameScene extends Phaser.Scene {
       eqBg.on('pointerdown', () => { this.network.emit('equip_item', { itemKey: this.inventory[iid2] }); this.showInventory(); });
       this.inventoryElements.push(eqBg);
 
-      const eqText = this.add.text(ix + 81, iy + 15, 'Equip', { fontSize: '8px', fontFamily: 'monospace', color: '#8888ff' }).setOrigin(0.5).setDepth(152);
+      const eqText = this.add.text(ix + 81, iy + 15, 'Equip', { fontSize: '10px', fontFamily: 'monospace', color: '#8888ff' }).setOrigin(0.5).setDepth(152);
       this.inventoryElements.push(eqText);
     }
   }
@@ -1056,7 +1177,7 @@ class GameScene extends Phaser.Scene {
     this.chatInputText = this.add.text(10, 434, '> ' + this.chatInput + '_', { fontSize: '13px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(200);
     this.chatInputText.setAlpha(0);
     this.tweens.add({ targets: this.chatInputText, alpha: 1, duration: 150 });
-    const hint = this.add.text(10, 402, 'Enter to send | Esc to cancel', { fontSize: '9px', fontFamily: 'monospace', color: '#666666' }).setDepth(200);
+    const hint = this.add.text(10, 402, 'Enter to send | Esc to cancel', { fontSize: '10px', fontFamily: 'monospace', color: '#666666' }).setDepth(200);
     this.chatInputHint = hint;
   }
 
@@ -1150,15 +1271,13 @@ class GameScene extends Phaser.Scene {
     let dy = 0;
     let direction = this.facingDir;
 
-    if (this.keys.A.isDown || this.keys.LEFT.isDown) { dx = -1; direction = 'left'; }
-    else if (this.keys.D.isDown || this.keys.RIGHT.isDown) { dx = 1; direction = 'right'; }
+    if (this.keys.A.isDown || this.keys.LEFT.isDown || this.touch.left) { dx = -1; direction = 'left'; }
+    else if (this.keys.D.isDown || this.keys.RIGHT.isDown || this.touch.right) { dx = 1; direction = 'right'; }
 
-    if (this.keys.W.isDown || this.keys.UP.isDown) { dy = -1; direction = 'up'; }
-    else if (this.keys.S.isDown || this.keys.DOWN.isDown) { dy = 1; direction = 'down'; }
+    if (this.keys.W.isDown || this.keys.UP.isDown || this.touch.up) { dy = -1; direction = 'up'; }
+    else if (this.keys.S.isDown || this.keys.DOWN.isDown || this.touch.down) { dy = 1; direction = 'down'; }
 
     const moving = dx !== 0 || dy !== 0;
-
-    this.playerSprite.y -= Math.sin(this.walkCycle) * 1.5;
 
     if (moving) {
       if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
@@ -1180,24 +1299,30 @@ class GameScene extends Phaser.Scene {
           this.playerSprite.x = newX;
           this.playerSprite.y = newY;
         }
+      } else {
+        this.playerSprite.x = newX;
+        this.playerSprite.y = newY;
       }
 
-      this.walkCycle += dt * 12;
+      this.walkFrame += dt * 10;
+      const step = Math.abs(Math.sin(this.walkFrame)) * 0.04;
+      this.playerSprite.setScale(direction === 'left' ? -1 - step : 1 + step, 1 - step * 0.4);
     } else {
-      this.walkCycle = 0;
+      this.walkFrame = 0;
+      this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
     }
 
-    this.playerSprite.y += Math.sin(this.walkCycle) * 1.5;
+    if (this.equipmentAura && this.playerSprite) {
+      this.equipmentAura.setPosition(this.playerSprite.x, this.playerSprite.y);
+    }
 
-    if (direction !== this.facingDir || moving) {
+    if (direction !== this.facingDir || (moving && direction !== this.facingDir)) {
       this.facingDir = direction;
       const baseKey = 'player_' + this.playerClass;
       if (direction === 'up') {
         this.playerSprite.setTexture(baseKey + '_back');
-        this.playerSprite.setScale(1, 1);
       } else {
         this.playerSprite.setTexture(baseKey);
-        this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
       }
     }
 
@@ -1254,10 +1379,10 @@ class GameScene extends Phaser.Scene {
     const zones = ['meadow', 'forest', 'caves', 'ruins', 'tower'];
     const names = ['Meadow', 'Forest', 'Caves', 'Ruins', 'Tower'];
     const levels = ['1-5', '5-10', '10-15', '15-20', '20+'];
-    const lines = ['GOAL:', 'Explore all 5 zones +'];
+    const lines = ['--- GOAL ---', ''];
     for (let i = 0; i < 5; i++) {
       const visited = this.zonesVisited && this.zonesVisited[zones[i]];
-      const icon = visited ? '[+]' : '[ ]';
+      const icon = visited ? '[X]' : '[ ]';
       const color = visited ? '#88ff88' : '#666666';
       lines.push(icon + ' ' + names[i] + ' (Lv' + levels[i] + ')');
     }
@@ -1269,16 +1394,16 @@ class GameScene extends Phaser.Scene {
 
   showZoneLore(zoneName, lore, color) {
     if (this.zoneLoreText) this.zoneLoreText.destroy();
-    const shortLore = lore.length > 100 ? lore.slice(0, 97) + '...' : lore;
+    const shortLore = lore.length > 200 ? lore.slice(0, 197) + '...' : lore;
     this.zoneLoreText = this.add.text(320, 110, zoneName + '\n' + shortLore, {
-      fontSize: '11px',
+      fontSize: '12px',
       fontFamily: 'monospace',
       color: color || '#88ccff',
       stroke: '#000000',
       strokeThickness: 3,
       align: 'center',
-      lineSpacing: 4,
-      wordWrap: { width: 350 },
+      lineSpacing: 5,
+      wordWrap: { width: 360 },
     }).setOrigin(0.5).setDepth(60).setAlpha(0);
 
     this.tweens.add({
@@ -1315,23 +1440,42 @@ class GameScene extends Phaser.Scene {
     this.helpElements.push(g);
 
     const lines = [
-      { text: '=== CONTROLS ===', color: '#ffcc00', s: 13 },
-      { text: 'WASD / Arrow Keys', color: '#ffffff', s: 11 }, { text: 'Move', color: '#888888', s: 11 },
-      { text: '1 - 5', color: '#ffffff', s: 11 }, { text: 'Select spell, click to cast', color: '#888888', s: 11 },
-      { text: 'Click monster', color: '#ffffff', s: 11 }, { text: 'Target it (see info below)', color: '#888888', s: 11 },
-      { text: 'Click item', color: '#ffffff', s: 11 }, { text: 'Pick up from ground', color: '#888888', s: 11 },
-      { text: 'I', color: '#ffffff', s: 11 }, { text: 'Inventory (Use/Equip items)', color: '#888888', s: 11 },
-      { text: 'Enter', color: '#ffffff', s: 11 }, { text: 'Chat', color: '#888888', s: 11 },
-      { text: 'R', color: '#ffffff', s: 11 }, { text: 'Respawn when dead', color: '#888888', s: 11 },
-      { text: 'H / Esc', color: '#ffffff', s: 11 }, { text: 'Close this help', color: '#888888', s: 11 },
-      { text: '', color: '#ffffff', s: 11 },
-      { text: '=== GAMEPLAY ===', color: '#ffcc00', s: 13 },
-      { text: 'Kill monsters -> XP -> Level up -> Grow stronger', color: '#aaaaaa', s: 11 },
-      { text: 'Collect loot, equip gear, use potions', color: '#aaaaaa', s: 11 },
-      { text: '5 zones: Meadow > Forest > Caves > Ruins > Tower', color: '#aaaaaa', s: 11 },
-      { text: 'Final goal: Defeat the Aether Lord in the Tower!', color: '#ffcc00', s: 11 },
-      { text: '', color: '#ffffff', s: 11 },
-      { text: 'Solo adventure (multiplayer optional)', color: '#88ccff', s: 11 },
+      { text: '=== GUIDE BOOK ===', color: '#ffcc00', s: 14 },
+      { text: '', color: '#ffffff', s: 8 },
+      { text: '--- CONTROLS ---', color: '#88ccff', s: 12 },
+      { text: 'WASD / Arrow Keys : Move', color: '#cccccc', s: 10 },
+      { text: '1-5 : Select a spell slot', color: '#cccccc', s: 10 },
+      { text: 'Click : Cast selected spell at cursor', color: '#cccccc', s: 10 },
+      { text: 'Click monster : Target it (track HP)', color: '#cccccc', s: 10 },
+      { text: 'I : Inventory (use potions, equip gear)', color: '#cccccc', s: 10 },
+      { text: 'Enter : Chat with other players', color: '#cccccc', s: 10 },
+      { text: 'R : Respawn after death', color: '#cccccc', s: 10 },
+      { text: 'H / Esc : Open/close Guide', color: '#cccccc', s: 10 },
+      { text: '', color: '#ffffff', s: 6 },
+      { text: '--- HOW TO PLAY ---', color: '#88ccff', s: 12 },
+      { text: '1. Kill monsters to earn XP and loot', color: '#aaaaaa', s: 10 },
+      { text: '2. Level up to grow stronger', color: '#aaaaaa', s: 10 },
+      { text: '3. Equip better gear from loot drops', color: '#aaaaaa', s: 10 },
+      { text: '4. Use potions to restore HP/MP', color: '#aaaaaa', s: 10 },
+      { text: '5. Walk to zone edges to explore new areas', color: '#aaaaaa', s: 10 },
+      { text: '6. Learn new spells from scroll drops', color: '#aaaaaa', s: 10 },
+      { text: '', color: '#ffffff', s: 6 },
+      { text: '--- ZONES (in order) ---', color: '#88ccff', s: 12 },
+      { text: 'Meadow (Lv1-5) -> Forest (Lv5-10)', color: '#88ff88', s: 10 },
+      { text: 'Caves (Lv10-15) -> Ruins (Lv15-20)', color: '#88ff88', s: 10 },
+      { text: 'Tower (Lv20+) - Final boss: Aether Lord', color: '#ffcc00', s: 10 },
+      { text: '', color: '#ffffff', s: 6 },
+      { text: '--- ITEM RARITY ---', color: '#88ccff', s: 12 },
+      { text: 'Common (white) | Uncommon (green)', color: '#cccccc', s: 10 },
+      { text: 'Rare (blue) | Epic (purple)', color: '#cccccc', s: 10 },
+      { text: 'Legendary (orange) - best gear!', color: '#ff8800', s: 10 },
+      { text: '', color: '#ffffff', s: 6 },
+      { text: '--- TIPS ---', color: '#88ccff', s: 12 },
+      { text: 'HP/MP regenerate over time', color: '#88ff88', s: 10 },
+      { text: 'Edge tiles glow blue - walk there to move on', color: '#88ccff', s: 10 },
+      { text: 'Blue arrows on edges show exit direction', color: '#88ccff', s: 10 },
+      { text: 'You can only equip 1 weapon, 1 armor, 1 ring', color: '#aaaaaa', s: 10 },
+      { text: 'Scrolls teach you permanent new spells', color: '#aaaaaa', s: 10 },
     ];
 
     let y = 22;
@@ -1339,8 +1483,8 @@ class GameScene extends Phaser.Scene {
       const l = lines[i];
       const t = this.add.text(320, y, l.text, { fontSize: l.s + 'px', fontFamily: 'monospace', color: l.color }).setOrigin(0.5, 0).setDepth(301);
       this.helpElements.push(t);
-      y += (l.text === '' ? 8 : l.s > 12 ? 22 : 16);
-      if (y > 440) break;
+      y += (l.text === '' ? 4 : l.s > 12 ? 24 : l.s > 10 ? 18 : 14);
+      if (y > 445) break;
     }
   }
 

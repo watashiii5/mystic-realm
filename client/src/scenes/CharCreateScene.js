@@ -2,6 +2,9 @@ const CHAR_CLASSES = [
   { key: 'mage', name: 'Mage', texture: 'player_mage', desc: 'Balanced spellcaster with healing', stats: 'HP:80 MP:100 ATK:12 DEF:8', spells: 'Magic Bolt + Heal' },
   { key: 'sorcerer', name: 'Sorcerer', texture: 'player_sorcerer', desc: 'Glass cannon — highest damage', stats: 'HP:60 MP:120 ATK:18 DEF:5', spells: 'Fireball' },
   { key: 'druid', name: 'Druid', texture: 'player_druid', desc: 'Nature warrior — tanky support', stats: 'HP:100 MP:80 ATK:8 DEF:12', spells: 'Heal + Summon Wolf' },
+  { key: 'warrior', name: 'Warrior', texture: 'player_warrior', desc: 'Unyielding shieldbearer — high HP and defense', stats: 'HP:130 MP:40 ATK:16 DEF:14', spells: 'Stone Wall + Gale' },
+  { key: 'archer', name: 'Archer', texture: 'player_archer', desc: 'Deadly ranged striker — fastest and most agile', stats: 'HP:70 MP:90 ATK:20 DEF:4', spells: 'Magic Bolt + Ice Shard' },
+  { key: 'summoner', name: 'Summoner', texture: 'player_summoner', desc: 'Mystic beast tamer — summons pets to fight', stats: 'HP:75 MP:110 ATK:10 DEF:6', spells: 'Summon Wolf + Heal' },
 ];
 
 class CharCreateScene extends Phaser.Scene {
@@ -118,7 +121,7 @@ class CharCreateScene extends Phaser.Scene {
     this.classStatsText.setText(cls.stats);
     this.classSpellsText.setText('Spells: ' + cls.spells);
 
-    const colors = { mage: 0x3355aa, sorcerer: 0xcc3333, druid: 0x33aa55 };
+    const colors = { mage: 0x3355aa, sorcerer: 0xcc3333, druid: 0x33aa55, warrior: 0x886644, archer: 0x44aa44, summoner: 0x8844aa };
     this.classNameGlow.clear();
     this.classNameGlow.fillStyle(colors[cls.key] || 0x3355aa, 0.15);
     this.classNameGlow.fillCircle(320, 245, 80);

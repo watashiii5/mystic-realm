@@ -43,7 +43,7 @@ function saveAll() {
   const data = {};
   for (const id in gameState.players) {
     const p = gameState.players[id];
-    data[p.name] = { class: p.class, level: p.level, xp: p.xp, spells: p.spells, inventory: p.inventory, equipped: p.equipped, zonesVisited: p.zonesVisited, monstersKilled: p.monstersKilled };
+    data[p.name] = { class: p.class, level: p.level, xp: p.xp, spells: p.spells, inventory: p.inventory, equipped: p.equipped, zonesVisited: p.zonesVisited, monstersKilled: p.monstersKilled, statPoints: p.statPoints, allocatedStats: p.allocatedStats };
   }
   try { fs.writeFileSync(dataFile, JSON.stringify(data)); } catch (e) {}
 }
@@ -111,6 +111,8 @@ function createPlayer(id, data) {
     spells: saved?.spells || [...(CLASS_STARTING_SPELLS[pclass] || ['magic_bolt'])],
     inventory: saved?.inventory || [],
     equipped: saved?.equipped || { weapon: null, armor: null, accessory: null },
+    statPoints: saved?.statPoints || 0,
+    allocatedStats: saved?.allocatedStats || { hp: 0, mp: 0, atk: 0, def: 0 },
     lastAttack: 0,
     zonesVisited: saved?.zonesVisited || { meadow: true },
     monstersKilled: saved?.monstersKilled || 0,
@@ -130,6 +132,12 @@ function applyEquipment(p) {
   for (const slot in p.equipped) {
     if (p.equipped[slot]) s = applyItemStats(s, p.equipped[slot]);
   }
+  if (p.allocatedStats) {
+    s.maxHp += p.allocatedStats.hp * 10;
+    s.maxMp += p.allocatedStats.mp * 8;
+    s.atk += p.allocatedStats.atk * 2;
+    s.def += p.allocatedStats.def * 2;
+  }
   p.maxHp = s.maxHp;
   p.maxMp = s.maxMp;
   p.atk = s.atk;
@@ -142,7 +150,9 @@ function giveXP(player, amount) {
   player.xp += amount;
   const result = xpToLevel(player.xp);
   if (result.level > player.level) {
+    const gained = result.level - player.level;
     player.level = result.level;
+    player.statPoints += gained * 3;
     applyEquipment(player);
     player.hp = player.maxHp;
     player.mp = player.maxMp;
@@ -209,18 +219,40 @@ function monsterAI(zone, monsters, players, now) {
     const pid = closest.id;
     atkCount[pid] = (atkCount[pid] || 0) + 1;
     if (atkCount[pid] > 3 && dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) continue;
-    if (dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) {
-      m.lastAttack = now;
-      let hit = m.atk - closest.def > 0 ? m.atk - closest.def : 1;
-      if (m.boss && m.hp < m.maxHp * 0.5) hit = Math.floor(hit * 2);
-      if (m.ranged) {
-        addProjectile(-m.id, zone, 'magic_bolt', m.x, m.y, closest.x, closest.y);
-      } else {
-        closest.hp -= hit;
-        io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'player', ti: pid, a: hit, x: closest.x, y: closest.y });
-        if (closest.hp <= 0) { closest.hp = 0; closest.alive = false; io.to('zone_' + zone).emit('player_died', { id: pid }); }
+      if (dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) {
+        m.lastAttack = now;
+        let hit = m.atk - closest.def > 0 ? m.atk - closest.def : 1;
+        if (m.boss && m.hp < m.maxHp * 0.5) hit = Math.floor(hit * 2);
+        if (m.poison) {
+          closest.poisonT = (closest.poisonT || 0) + m.poison * 20;
+          closest.poisonDmg = (closest.poisonDmg || 0) + Math.max(1, Math.floor(hit * 0.4));
+          io.to('zone_' + zone).emit('chat_message', { n: 'System', t: 'You are poisoned!', c: '#44ff44' });
+        }
+        if (m.lifedrain) {
+          const drain = Math.floor(hit * 0.4);
+          m.hp = Math.min(m.maxHp, m.hp + drain);
+          hit += drain;
+        }
+        if (m.teleport && Math.random() < 0.35) {
+          const map2 = getZoneMap(zone);
+          for (let ty = 2; ty < MAP_ROWS - 2; ty++) {
+            for (let tx = 2; tx < MAP_COLS - 2; tx++) {
+              if (map2[ty][tx] === 0 || map2[ty][tx] === 4) {
+                m.x = tx * TILE_SIZE + TILE_SIZE / 2;
+                m.y = ty * TILE_SIZE + TILE_SIZE / 2;
+                ty = MAP_ROWS; break;
+              }
+            }
+          }
+        }
+        if (m.ranged) {
+          addProjectile(-m.id, zone, 'magic_bolt', m.x, m.y, closest.x, closest.y);
+        } else {
+          closest.hp -= hit;
+          io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'player', ti: pid, a: hit, x: closest.x, y: closest.y });
+          if (closest.hp <= 0) { closest.hp = 0; closest.alive = false; io.to('zone_' + zone).emit('player_died', { id: pid }); }
+        }
       }
-    }
   }
 }
 
@@ -254,7 +286,8 @@ function checkProjectiles(zone, monsters, players) {
                 owner.monstersKilled++;
                 const xpr = giveXP(owner, m.xp);
                 io.to(zoneRoom).emit('monster_died', { mid: m.id, pid: owner.id, x: m.x, y: m.y, xp: m.xp, lv: xpr.leveledUp, nl: xpr.newLevel, xpe: owner.xp, mk: owner.monstersKilled });
-                const loot = rollLoot(zone);
+                const isBoss = m.boss === true;
+                const loot = isBoss ? (rollLoot(zone) || rollLoot(zone)) : rollLoot(zone);
                 if (loot) {
                   const li = { id: gameState.nextItemId++, zone, x: m.x + (Math.random() - 0.5) * 20, y: m.y + (Math.random() - 0.5) * 20, k: loot.itemKey, n: loot.name, t: loot.type, s: loot.spell };
                   if (!gameState.groundItems[zone]) gameState.groundItems[zone] = [];
@@ -296,7 +329,7 @@ function checkProjectiles(zone, monsters, players) {
 const plSer = p => ({ id: p.id, n: p.name, c: p.class, x: p.x, y: p.y, h: p.hp, mh: p.maxHp, m: p.mp, mm: p.maxMp, l: p.level, a: p.alive, d: p.direction, mv: p.moving, xp: p.xp });
 const monSer = m => ({ id: m.id, k: m.key, n: m.name, x: m.x, y: m.y, h: m.hp, mh: m.maxHp, c: m.color, a: m.alive, b: m.boss || false });
 const projSer = p => ({ id: p.id, x: p.x, y: p.y, c: p.color, sk: p.spellKey });
-const itemSer = i => ({ id: i.id, x: i.x, y: i.y, n: i.n || i.n === undefined ? (i.n || 'Item') : 'Item' });
+const itemSer = i => ({ id: i.id, x: i.x, y: i.y, n: i.n || 'Item', k: i.k || '' });
 
 function gameLoop() {
   const now = Date.now();
@@ -331,8 +364,19 @@ function gameLoop() {
     for (let pi = 0; pi < zoneP.length; pi++) {
       const pl = zoneP[pi];
       if (pl.alive) {
-        if (pl.hp < pl.maxHp) pl.hp = Math.min(pl.maxHp, pl.hp + 0.3);
-        if (pl.mp < pl.maxMp) pl.mp = Math.min(pl.maxMp, pl.mp + 0.15);
+        if (pl.poisonT > 0) {
+          pl.poisonT -= 1;
+          if (pl.poisonT % 4 === 0) {
+            const pDmg = pl.poisonDmg || 1;
+            pl.hp = Math.max(0, pl.hp - pDmg);
+            io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'player', ti: pl.id, a: pDmg, x: pl.x, y: pl.y });
+            if (pl.hp <= 0) { pl.hp = 0; pl.alive = false; io.to('zone_' + zone).emit('player_died', { id: pl.id }); }
+          }
+        } else {
+          pl.poisonDmg = 0;
+          if (pl.hp < pl.maxHp) pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.005);
+          if (pl.mp < pl.maxMp) pl.mp = Math.min(pl.maxMp, pl.mp + pl.maxMp * 0.003);
+        }
       }
     }
 
@@ -391,7 +435,7 @@ io.on('connection', (socket) => {
     const gi = gameState.groundItems[currentZone];
     if (gi && gi.length > 0) {
       const itemList = [];
-      for (let ii = 0; ii < gi.length; ii++) itemList.push({ id: gi[ii].id, x: gi[ii].x, y: gi[ii].y, n: gi[ii].n });
+      for (let ii = 0; ii < gi.length; ii++) itemList.push({ id: gi[ii].id, x: gi[ii].x, y: gi[ii].y, n: gi[ii].n, k: gi[ii].k || '' });
       socket.emit('ground_items', itemList);
     }
     socket.emit('progress_update', { zonesVisited: player ? player.zonesVisited : { meadow: true }, monstersKilled: player ? player.monstersKilled : 0, level: player ? player.level : 1 });
@@ -404,6 +448,8 @@ io.on('connection', (socket) => {
     const sp = plSer(player);
     sp.zv = player.zonesVisited;
     sp.mk = player.monstersKilled;
+    sp.sp = player.statPoints;
+    sp.as = player.allocatedStats;
     socket.emit('you_joined', { id, player: sp });
     io.to('zone_' + currentZone).emit('player_joined', { id, player: sp });
     socket.emit('inventory_update', { inventory: player.inventory, spells: player.spells, equipped: player.equipped });
@@ -412,7 +458,7 @@ io.on('connection', (socket) => {
       player.equipped = saved.equipped || { weapon: null, armor: null, accessory: null };
       applyEquipment(player);
       socket.emit('inventory_update', { inventory: player.inventory, spells: player.spells, equipped: player.equipped });
-      socket.emit('stat_update', { hp: player.hp, mh: player.maxHp, mp: player.mp, mm: player.maxMp, atk: player.atk, def: player.def });
+      socket.emit('stat_update', { hp: player.hp, mh: player.maxHp, mp: player.mp, mm: player.maxMp, atk: player.atk, def: player.def, sp: player.statPoints, as: player.allocatedStats });
     }
     socket.to('zone_' + currentZone).emit('chat_message', { n: 'System', t: player.name + ' has entered the realm.', c: '#ffcc00' });
   });
@@ -446,7 +492,7 @@ io.on('connection', (socket) => {
       const gi = gameState.groundItems[edge];
       if (gi && gi.length > 0) {
         const itemList = [];
-        for (let ii = 0; ii < gi.length; ii++) itemList.push({ id: gi[ii].id, x: gi[ii].x, y: gi[ii].y, n: gi[ii].n });
+        for (let ii = 0; ii < gi.length; ii++) itemList.push({ id: gi[ii].id, x: gi[ii].x, y: gi[ii].y, n: gi[ii].n, k: gi[ii].k || '' });
         socket.emit('ground_items', itemList);
       }
       socket.emit('chat_message', { n: 'System', t: zoneInfo.lore || ('You enter the ' + zoneInfo.name), c: zoneInfo.color || '#88ccff' });
@@ -486,7 +532,7 @@ io.on('connection', (socket) => {
       addProjectile(id, currentZone, data.spell, player.x, player.y, tx, ty);
     }
 
-    if (spell.aoe && spell.radius > 20) {
+    if (spell.aoe && spell.radius > 0) {
       const monsters = getMonstersInZone(currentZone);
       const radSq = spell.radius * spell.radius;
       for (let mi = 0; mi < monsters.length; mi++) {
@@ -500,7 +546,8 @@ io.on('connection', (socket) => {
           player.monstersKilled++;
           const xpr = giveXP(player, m.xp);
           io.to('zone_' + currentZone).emit('monster_died', { mid: m.id, pid: id, x: m.x, y: m.y, xp: m.xp, lv: xpr.leveledUp, nl: xpr.newLevel, xpe: player.xp, mk: player.monstersKilled });
-          const loot = rollLoot(currentZone);
+          const isBoss = m.boss === true;
+          const loot = isBoss ? (rollLoot(currentZone) || rollLoot(currentZone)) : rollLoot(currentZone);
           if (loot) {
             const li = { id: gameState.nextItemId++, zone: currentZone, x: m.x + (Math.random() - 0.5) * 20, y: m.y + (Math.random() - 0.5) * 20, k: loot.itemKey, n: loot.name, t: loot.type, s: loot.spell };
             if (!gameState.groundItems[currentZone]) gameState.groundItems[currentZone] = [];
@@ -551,7 +598,7 @@ io.on('connection', (socket) => {
     player.inventory.splice(idx, 1);
     applyEquipment(player);
     socket.emit('inventory_update', { inventory: player.inventory, spells: player.spells, equipped: player.equipped });
-    socket.emit('stat_update', { hp: player.hp, mh: player.maxHp, mp: player.mp, mm: player.maxMp, atk: player.atk, def: player.def });
+    socket.emit('stat_update', { hp: player.hp, mh: player.maxHp, mp: player.mp, mm: player.maxMp, atk: player.atk, def: player.def, sp: player.statPoints, as: player.allocatedStats });
   });
 
   socket.on('use_item', (data) => {
@@ -564,7 +611,7 @@ io.on('connection', (socket) => {
     if (itemData.stats.heal) player.hp = player.hp + itemData.stats.heal > player.maxHp ? player.maxHp : player.hp + itemData.stats.heal;
     if (itemData.stats.mana) player.mp = player.mp + itemData.stats.mana > player.maxMp ? player.maxMp : player.mp + itemData.stats.mana;
     socket.emit('inventory_update', { inventory: player.inventory, spells: player.spells });
-    socket.emit('stat_update', { hp: player.hp, mh: player.maxHp, mp: player.mp, mm: player.maxMp });
+    socket.emit('stat_update', { hp: player.hp, mh: player.maxHp, mp: player.mp, mm: player.maxMp, sp: player.statPoints, as: player.allocatedStats });
   });
 
   socket.on('respawn', () => {
@@ -588,6 +635,16 @@ io.on('connection', (socket) => {
   socket.on('chat_message', (data) => {
     if (!player) return;
     io.to('zone_' + currentZone).emit('chat_message', { n: player.name, t: data.text, c: '#ffffff' });
+  });
+
+  socket.on('allocate_stat', (data) => {
+    if (!player || player.statPoints <= 0) return;
+    const stat = data.stat;
+    if (!['hp', 'mp', 'atk', 'def'].includes(stat)) return;
+    player.allocatedStats[stat] = (player.allocatedStats[stat] || 0) + 1;
+    player.statPoints--;
+    applyEquipment(player);
+    socket.emit('stat_update', { hp: player.hp, mh: player.maxHp, mp: player.mp, mm: player.maxMp, atk: player.atk, def: player.def, sp: player.statPoints, as: player.allocatedStats });
   });
 
   socket.on('disconnect', () => {
