@@ -226,13 +226,20 @@ function applyItemStats(stats, itemKey) {
 function createMonsterInstance(zone, monsterKey, id) {
   const def = MONSTERS[monsterKey];
   if (!def) return null;
-  const spawn = getSpawnTile(zone);
+  const map = getZoneMap(zone);
+  const walkable = [];
+  for (let y = 1; y < MAP_ROWS - 1; y++) {
+    for (let x = 1; x < MAP_COLS - 1; x++) {
+      if (map[y][x] === 0 || map[y][x] === 4) walkable.push({ x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 });
+    }
+  }
+  const spawn = walkable.length > 0 ? walkable[Math.random() * walkable.length | 0] : getSpawnTile(zone);
   return {
     id, zone, key: monsterKey, name: def.name,
     hp: def.hp, maxHp: def.hp, atk: def.atk, def: def.def,
     xp: def.xp, speed: def.speed, aggro: def.aggro,
-    x: spawn.x + (Math.random() - 0.5) * 64,
-    y: spawn.y + (Math.random() - 0.5) * 64,
+    x: spawn.x + (Math.random() - 0.5) * 32,
+    y: spawn.y + (Math.random() - 0.5) * 32,
     color: def.color, ranged: def.ranged || false,
     boss: def.boss || false, alive: true,
     target: null, aggroTimer: 0,
