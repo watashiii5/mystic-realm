@@ -62,6 +62,11 @@ class GameScene extends Phaser.Scene {
     this.facingDir = 'down';
     this.walkBob = 0;
     this.walkCycle = 0;
+    this.displayHp = 100;
+    this.displayMp = 50;
+    this.displayXp = 0;
+    this.chatBg = null;
+    this.chatAnims = [];
   }
 
   create() {
@@ -394,21 +399,25 @@ class GameScene extends Phaser.Scene {
 
   updateHUD() {
     if (!this.hpBar) return;
-    const hpW = 120 * (this.myStats.hp / this.myStats.maxHp);
+
+    this.displayHp += (this.myStats.hp - this.displayHp) * 0.15;
+    this.displayMp += (this.myStats.mp - this.displayMp) * 0.15;
+
+    const hpW = 120 * Math.max(0, this.displayHp / this.myStats.maxHp);
     this.hpBar.clear();
     this.hpBar.fillStyle(0xcc3333); this.hpBar.fillRect(10, 24, Math.max(0, hpW), 10);
     if (hpW > 4) {
       this.hpBar.fillStyle(0xff5555); this.hpBar.fillRect(10, 24, Math.max(0, hpW - 2), 4);
     }
-    this.hpText.setText(this.myStats.hp + '/' + this.myStats.maxHp);
+    this.hpText.setText(Math.ceil(this.displayHp) + '/' + this.myStats.maxHp);
 
-    const mpW = 120 * (this.myStats.mp / this.myStats.maxMp);
+    const mpW = 120 * Math.max(0, this.displayMp / this.myStats.maxMp);
     this.mpBar.clear();
     this.mpBar.fillStyle(0x3333cc); this.mpBar.fillRect(10, 38, Math.max(0, mpW), 10);
     if (mpW > 4) {
       this.mpBar.fillStyle(0x5555ff); this.mpBar.fillRect(10, 38, Math.max(0, mpW - 2), 4);
     }
-    this.mpText.setText(this.myStats.mp + '/' + this.myStats.maxMp);
+    this.mpText.setText(Math.ceil(this.displayMp) + '/' + this.myStats.maxMp);
 
     this.lvlText.setText('Lv.' + this.myStats.level);
     this.atkDefText.setText('ATK:' + this.myStats.atk + ' DEF:' + this.myStats.def);
@@ -416,11 +425,14 @@ class GameScene extends Phaser.Scene {
 
   updateXPBar(xp) {
     if (!this.xpBar || !this.myStats) return;
+    this.displayXp += ((xp || 0) - this.displayXp) * 0.1;
     const needed = Math.floor(100 * Math.pow(1.3, this.myStats.level - 1));
-    const current = xp || 0;
-    const w = 120 * Math.min(1, current / needed);
+    const w = 120 * Math.min(1, Math.max(0, this.displayXp / needed));
     this.xpBar.clear();
     this.xpBar.fillStyle(0x44cc44); this.xpBar.fillRect(10, 52, Math.max(0, w), 8);
+    if (w > 4) {
+      this.xpBar.fillStyle(0x66ff66); this.xpBar.fillRect(10, 52, Math.max(0, w - 2), 3);
+    }
   }
 
   createSpellBar() {
@@ -819,8 +831,19 @@ class GameScene extends Phaser.Scene {
   }
 
   showDamageNumber(x, y, text, color) {
+    for (let i = 0; i < this.damageTexts.length; i++) {
+      const dt = this.damageTexts[i];
+      if (dt.alpha <= 0 || dt.y < -50) {
+        dt.setText(text); dt.setPosition(x, y - 10);
+        dt.setStyle({ fontSize: '12px', fontFamily: 'monospace', color: color || '#ffffff', stroke: '#000000', strokeThickness: 3 });
+        dt.setAlpha(1); dt.setScale(1);
+        dt.targetY = y - 40;
+        return;
+      }
+    }
     const t = this.add.text(x, y - 10, text, { fontSize: '12px', fontFamily: 'monospace', color: color || '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(100);
-    this.tweens.add({ targets: t, y: y - 40, alpha: 0, duration: 800, onComplete: () => t.destroy() });
+    t.targetY = y - 40;
+    this.damageTexts.push(t);
   }
 
   showLevelUp(level) {
@@ -942,30 +965,45 @@ class GameScene extends Phaser.Scene {
     const isSys = name === 'System';
     const displayName = isSys ? '' : (name.length > 12 ? name.slice(0, 12) + '..' : name + ':');
     const displayText = text.length > 60 ? text.slice(0, 60) + '..' : text;
-    if (isSys) {
-      this.chatMessages.push({ text: displayText, time: Date.now(), sys: true, color: color || '#88ccff' });
-    } else {
-      this.chatMessages.push({ text: displayName + ' ' + displayText, time: Date.now(), sys: false, color: color || '#cccccc' });
-    }
+    const entry = { text: isSys ? displayText : displayName + ' ' + displayText, time: Date.now(), sys: isSys, color: color || (isSys ? '#88ccff' : '#cccccc'), y: 445 };
+    this.chatMessages.push(entry);
     while (this.chatMessages.length > maxMsg) this.chatMessages.shift();
     this.renderChatHistory();
   }
 
   renderChatHistory() {
     const now = Date.now();
+    const chatW = 480;
+    if (!this.chatBg) {
+      this.chatBg = this.add.graphics().setDepth(149);
+    }
+    this.chatBg.clear();
+    this.chatBg.fillStyle(0x000000, 0.5);
+    this.chatBg.fillRect(4, 368, chatW, 60);
+    this.chatBg.fillStyle(0xffffff, 0.05);
+    this.chatBg.fillRect(4, 368, chatW, 1);
+
     let idx = 0;
     for (let i = 0; i < this.chatMessages.length; i++) {
       const msg = this.chatMessages[i];
-      if (msg.sys && now - msg.time > 10000) continue;
+      if (msg.sys && now - msg.time > 10000) { msg.alpha = Math.max(0, 1 - (now - msg.time - 8000) / 2000); }
+      if (msg.alpha !== undefined && msg.alpha <= 0) continue;
+
       let t = this.chatPool[idx];
       if (!t) {
-        t = this.add.text(10, 0, '', { fontSize: '11px', fontFamily: 'monospace', color: '#cccccc', stroke: '#000000', strokeThickness: 2, wordWrap: { width: 460 } }).setDepth(150);
+        t = this.add.text(10, 0, '', { fontSize: '11px', fontFamily: 'monospace', wordWrap: { width: chatW - 12 } }).setDepth(150);
         this.chatPool.push(t);
       }
+
+      if (msg.y === undefined) msg.y = 428;
+      if (msg.y > 370 + idx * 15) {
+        msg.y -= 1.5;
+      }
+
       t.setText(msg.text);
-      t.setPosition(10, 370 + idx * 15);
+      t.setPosition(10, msg.y);
       t.setStyle({ color: msg.color, stroke: '#000000', strokeThickness: 2 });
-      t.setAlpha(msg.sys ? Math.max(0, 1 - (now - msg.time - 8000) / 2000) : 1);
+      t.setAlpha(msg.alpha !== undefined ? msg.alpha : 1);
       t.setVisible(true);
       idx++;
     }
@@ -1049,6 +1087,29 @@ class GameScene extends Phaser.Scene {
       const ms = this.monsterSprites[this.targetMonster];
       if (ms.nameText) {
         this.targetInfo.setPosition(ms.sprite.x, ms.sprite.y + 24);
+      }
+    }
+
+    this.renderChatHistory();
+    this.pulseTime = (this.pulseTime || 0) + delta;
+
+    for (let i = this.damageTexts.length - 1; i >= 0; i--) {
+      const dt = this.damageTexts[i];
+      if (dt.alpha <= 0) continue;
+      dt.y += (dt.targetY - dt.y) * 0.05;
+      dt.alpha -= delta * 0.001 * 1.2;
+      if (dt.alpha <= 0) { dt.alpha = 0; }
+    }
+
+    if (this.selectedSpell && this.spellSlots) {
+      const pulse = 0.6 + Math.sin(this.pulseTime * 0.005) * 0.4;
+      for (let i = 0; i < 5; i++) {
+        const slot = this.spellSlots[i];
+        if (slot.key === this.selectedSpell) {
+          slot.highlight.clear();
+          slot.highlight.lineStyle(2, Phaser.Display.Color.GetColor(Math.floor(255 * pulse), Math.floor(200 * pulse), 0));
+          slot.highlight.strokeRect(70 + i * 102, 424, 96, 40);
+        }
       }
     }
   }
