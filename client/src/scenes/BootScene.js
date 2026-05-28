@@ -1,159 +1,93 @@
-function pixel(g, x, y, color) {
-  g.fillStyle(color);
-  g.fillRect(x, y, 1, 1);
-}
-
-function drawPlayer(g, robeColor, accentColor, hasHat) {
-  const skin = 0xffd5b4;
-  const dark = 0x000000;
-  const white = 0xffffff;
-
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-      if (y >= 18 && y <= 30) {
-        if (x >= 9 && x <= 22) pixel(g, x, y, robeColor);
-        if (y >= 24 && y <= 26 && x >= 8 && x <= 23) pixel(g, x, y, robeColor);
-      }
-      if (y >= 12 && y <= 17) {
-        if (x >= 11 && x <= 20) pixel(g, x, y, skin);
-        if (y === 17 && x === 15) pixel(g, x, y, robeColor);
-        if (y === 17 && x === 16) pixel(g, x, y, robeColor);
-      }
-      if (y === 14 && (x === 13 || x === 17)) pixel(g, x, y, dark);
-      if (y === 15 && (x === 13 || x === 17)) pixel(g, x, y, dark);
-      if (y === 16 && (x === 14 || x === 16)) pixel(g, x, y, dark);
-      if (y === 9 && (x === 13 || x === 18)) pixel(g, x, y, dark);
-      if (y === 10 && (x === 13 || x === 18)) pixel(g, x, y, white);
-      if (y === 9 && x === 15) pixel(g, x, y, dark);
-      if (y === 10 && x === 15) pixel(g, x, y, dark);
-      if (y === 12 && x >= 14 && x <= 17) pixel(g, x, y, robeColor);
-    }
-  }
-
-  if (hasHat) {
-    for (let y = 3; y <= 9; y++) {
-      for (let x = 12; x <= 19; x++) pixel(g, x, y, robeColor);
-    }
-    for (let y = 6; y <= 8; y++) {
-      for (let x = 10; x <= 21; x++) pixel(g, x, y, accentColor);
-    }
-    for (let y = 3; y <= 5; y++) {
-      for (let x = 14; x <= 17; x++) pixel(g, x, y, accentColor);
-    }
-  }
-}
-
-function createTrees(g) {
-  const brown = 0x8B4513;
-  const green = 0x2d5a1e;
-  const lightGreen = 0x3d7a2e;
-
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-      if (x >= 13 && x <= 17 && y >= 18 && y <= 28) pixel(g, x, y, brown);
-      if (x >= 14 && x <= 16 && y >= 16 && y <= 17) pixel(g, x, y, brown);
-      if (y >= 2 && y <= 15) {
-        const dx = Math.abs(x - 15);
-        const dy = Math.abs(y - 8);
-        if (dx * dx + dy * dy <= 64) pixel(g, x, y, green);
-        if (dx * dx + dy * dy <= 49 && (x + y) % 3 === 0) pixel(g, x, y, lightGreen);
-      }
-    }
-  }
-}
-
-function createWater(g) {
-  const water = 0x2266aa;
-  const light = 0x3388cc;
-  const deep = 0x1a5588;
-
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-      pixel(g, x, y, water);
-      if ((x + y) % 4 === 0) pixel(g, x, y, light);
-      if ((x + y + 2) % 4 === 0) pixel(g, x, y, deep);
-    }
-  }
-}
-
-function createWall(g) {
-  const gray = 0x666666;
-  const light = 0x888888;
-  const dark = 0x444444;
-
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-      pixel(g, x, y, gray);
-    }
-  }
-  for (let y = 0; y < 32; y += 8) {
-    for (let x = 0; x < 32; x++) {
-      if (y < 2) pixel(g, x, y, light);
-      if (y >= 6 && y < 8) pixel(g, x, y, dark);
-    }
-  }
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x += 8) {
-      if (x < 2) pixel(g, x, y, light);
-      if (x >= 6 && x < 8) pixel(g, x, y, dark);
-    }
-  }
-}
-
-function createPath(g) {
-  const tan = 0xc4a882;
-  const dark = 0xb89872;
-
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-      pixel(g, x, y, tan);
-      if ((x + y) % 5 === 0) pixel(g, x, y, dark);
-    }
-  }
-}
-
-function createGrass(g) {
-  const green = 0x4a7c2e;
-  const light = 0x5a9c3e;
-  const dark = 0x3a6c1e;
-
-  for (let y = 0; y < 32; y++) {
-    for (let x = 0; x < 32; x++) {
-      pixel(g, x, y, green);
-      if ((x * 7 + y * 3) % 11 < 3) pixel(g, x, y, light);
-      if ((x * 5 + y * 7) % 13 < 2) pixel(g, x, y, dark);
-    }
-  }
-}
-
 class BootScene extends Phaser.Scene {
   constructor() {
     super('BootScene');
   }
 
   create() {
-    const draw = (key, fn) => {
+    var l = document.getElementById('loading');
+    if (l) l.style.display = 'none';
+    const W = 32, H = 32;
+
+    const make = (key, drawFn) => {
       const g = this.make.graphics({ add: false });
-      fn(g);
-      g.generateTexture(key, 32, 32);
+      drawFn(g, W, H);
+      g.generateTexture(key, W, H);
       g.destroy();
     };
 
-    draw('tile_0', createGrass);
-    draw('tile_1', createTrees);
-    draw('tile_2', createWater);
-    draw('tile_3', createWall);
-    draw('tile_4', createPath);
+    make('tile_0', (g) => {
+      g.fillStyle(0x4a7c2e); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x5a9c3e); g.fillRect(0, 0, 4, 4);
+      g.fillRect(16, 8, 4, 4); g.fillRect(8, 20, 4, 4);
+      g.fillRect(24, 16, 4, 4);
+    });
 
-    draw('player_mage', (g) => drawPlayer(g, 0x3355aa, 0x5577cc, true));
-    draw('player_sorcerer', (g) => drawPlayer(g, 0xcc3333, 0xee5555, false));
-    draw('player_druid', (g) => drawPlayer(g, 0x33aa55, 0x55cc77, false));
+    make('tile_1', (g) => {
+      g.fillStyle(0x2d5a1e); g.fillCircle(16, 9, 9);
+      g.fillStyle(0x3d7a2e); g.fillCircle(14, 7, 5);
+      g.fillCircle(18, 11, 4);
+      g.fillStyle(0x8B4513); g.fillRect(13, 17, 6, 12);
+      g.fillRect(14, 15, 4, 4);
+    });
 
-    const g = this.make.graphics({ add: false });
-    g.fillStyle(0x000000);
-    g.fillRect(0, 0, 640, 480);
-    g.generateTexture('black', 640, 480);
-    g.destroy();
+    make('tile_2', (g) => {
+      g.fillStyle(0x2266aa); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x3388cc); g.fillRect(0, 4, W, 2);
+      g.fillRect(0, 16, W, 2); g.fillRect(0, 28, W, 2);
+      g.fillStyle(0x1a5588); g.fillRect(0, 10, W, 1);
+      g.fillRect(0, 22, W, 1);
+    });
+
+    make('tile_3', (g) => {
+      g.fillStyle(0x666666); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x888888); g.fillRect(0, 0, W, 2);
+      g.fillRect(0, 8, W, 2); g.fillRect(0, 16, W, 2);
+      g.fillRect(0, 24, W, 2);
+
+      g.fillStyle(0x555555); g.fillRect(0, 0, 2, 8);
+      g.fillRect(8, 0, 2, 8); g.fillRect(16, 0, 2, 8);
+      g.fillRect(24, 0, 2, 8);
+      g.fillRect(4, 8, 2, 8); g.fillRect(12, 8, 2, 8);
+      g.fillRect(20, 8, 2, 8); g.fillRect(28, 8, 2, 8);
+      g.fillRect(0, 16, 2, 8); g.fillRect(8, 16, 2, 8);
+      g.fillRect(16, 16, 2, 8); g.fillRect(24, 16, 2, 8);
+      g.fillRect(4, 24, 2, 8); g.fillRect(12, 24, 2, 8);
+      g.fillRect(20, 24, 2, 8); g.fillRect(28, 24, 2, 8);
+    });
+
+    make('tile_4', (g) => {
+      g.fillStyle(0xc4a882); g.fillRect(0, 0, W, H);
+      g.fillStyle(0xb89872); g.fillRect(2, 6, 4, 4);
+      g.fillRect(18, 2, 4, 4); g.fillRect(8, 16, 4, 4);
+      g.fillRect(24, 22, 4, 4); g.fillRect(6, 26, 4, 4);
+    });
+
+    const drawChar = (g, robe, accent, hat) => {
+      g.fillStyle(0x000000); g.fillEllipse(16, 30, 18, 5);
+
+      g.fillStyle(robe); g.fillRect(9, 16, 14, 14);
+      g.fillRect(8, 28, 16, 4);
+
+      g.fillStyle(0xffd5b4); g.fillCircle(16, 12, 6);
+      g.fillRect(13, 16, 6, 3);
+
+      g.fillStyle(0x000000); g.fillRect(13, 10, 2, 3);
+      g.fillRect(17, 10, 2, 3);
+      g.fillStyle(0xffffff); g.fillRect(14, 10, 1, 2);
+      g.fillRect(18, 10, 1, 2);
+
+      g.fillStyle(robe); g.fillRect(14, 6, 4, 3);
+
+      if (hat) {
+        g.fillStyle(robe); g.fillTriangle(16, 0, 8, 12, 24, 12);
+        g.fillStyle(accent); g.fillRect(8, 10, 16, 3);
+        g.fillStyle(accent); g.fillRect(11, 3, 10, 2);
+      }
+    };
+
+    make('player_mage', (g) => drawChar(g, 0x3355aa, 0x5577cc, true));
+    make('player_sorcerer', (g) => drawChar(g, 0xcc3333, 0xee5555, false));
+    make('player_druid', (g) => drawChar(g, 0x33aa55, 0x55cc77, false));
 
     this.scene.start('MenuScene');
   }
