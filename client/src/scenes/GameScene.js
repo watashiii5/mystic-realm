@@ -117,8 +117,6 @@ class GameScene extends Phaser.Scene {
       }
     }, 100);
   }
-    }, 100);
-  }
 
   renderMap() {
     this.tileSprites.forEach(s => s.destroy());
