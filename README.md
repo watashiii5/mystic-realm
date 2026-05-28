@@ -138,6 +138,41 @@ To modify game balance, edit `server/src/game.js`:
 - `ZONES` — Map layout, edge transitions, level ranges, lore text
 - `calcStats(level)` — XP requirements, stat growth
 
+### Adding Custom Assets
+
+All textures are procedurally generated in `client/src/scenes/BootScene.js` using Phaser's Graphics API.
+
+**To replace with image files:**
+
+1. Place your sprite sheets in `client/assets/`
+2. In `BootScene.js`, load them in a `preload()` method:
+   ```js
+   preload() {
+     this.load.image('player_mage', 'assets/mage.png');
+     this.load.spritesheet('player_mage_walk', 'assets/mage_walk.png', { frameWidth: 32, frameHeight: 32 });
+   }
+   ```
+3. Remove the corresponding `make(...)` call
+4. In `GameScene.js`, use the loaded texture key instead of `'player_' + class`
+
+**Tile map:** 20×15 grid (640×480). Tile values 0–12:
+- `0` = Grass (walkable)
+- `1` = Tree (obstacle)
+- `2` = Water (obstacle)
+- `3` = Stone wall (obstacle)
+- `4` = Path (walkable)
+- `5–8` = Zone edges (walkable)
+- `9` = Cave floor (obstacle)
+- `10` = Ruins floor (obstacle)
+- `11` = Ruins wall (obstacle)
+- `12` = Tower floor (obstacle)
+
+Edit zone maps in `server/src/game.js` → `getZoneMap()`.
+
+**Player sprites:** 32×32 px. Add `_back` variant for up-facing animation (e.g., `player_mage_back`).
+
+**Monster sprites:** Currently drawn as colored circles via Graphics. Replace by loading textures and using `this.add.image()` in `addMonsterSprite()` (`GameScene.js:525`).
+
 ### Deployment
 
 Deploy to Render:

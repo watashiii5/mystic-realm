@@ -59,6 +59,9 @@ class GameScene extends Phaser.Scene {
     this.questShown = false;
     this.levelUpText = null;
     this.levelUpTimer = 0;
+    this.facingDir = 'down';
+    this.walkBob = 0;
+    this.walkCycle = 0;
   }
 
   create() {
@@ -328,6 +331,9 @@ class GameScene extends Phaser.Scene {
     const spawnX = 5 * TILE_SIZE + TILE_SIZE / 2;
     const spawnY = 7 * TILE_SIZE + TILE_SIZE / 2;
     this.playerSprite = this.add.image(spawnX, spawnY, texKey).setDepth(10);
+    this.facingDir = 'down';
+    this.walkBob = 0;
+    this.walkCycle = 0;
   }
 
   createHUD() {
@@ -391,11 +397,17 @@ class GameScene extends Phaser.Scene {
     const hpW = 120 * (this.myStats.hp / this.myStats.maxHp);
     this.hpBar.clear();
     this.hpBar.fillStyle(0xcc3333); this.hpBar.fillRect(10, 24, Math.max(0, hpW), 10);
+    if (hpW > 4) {
+      this.hpBar.fillStyle(0xff5555); this.hpBar.fillRect(10, 24, Math.max(0, hpW - 2), 4);
+    }
     this.hpText.setText(this.myStats.hp + '/' + this.myStats.maxHp);
 
     const mpW = 120 * (this.myStats.mp / this.myStats.maxMp);
     this.mpBar.clear();
     this.mpBar.fillStyle(0x3333cc); this.mpBar.fillRect(10, 38, Math.max(0, mpW), 10);
+    if (mpW > 4) {
+      this.mpBar.fillStyle(0x5555ff); this.mpBar.fillRect(10, 38, Math.max(0, mpW - 2), 4);
+    }
     this.mpText.setText(this.myStats.mp + '/' + this.myStats.maxMp);
 
     this.lvlText.setText('Lv.' + this.myStats.level);
@@ -897,7 +909,7 @@ class GameScene extends Phaser.Scene {
 
     let dx = 0;
     let dy = 0;
-    let direction = 'down';
+    let direction = this.facingDir;
 
     if (this.keys.A.isDown || this.keys.LEFT.isDown) { dx = -1; direction = 'left'; }
     else if (this.keys.D.isDown || this.keys.RIGHT.isDown) { dx = 1; direction = 'right'; }
@@ -906,6 +918,8 @@ class GameScene extends Phaser.Scene {
     else if (this.keys.S.isDown || this.keys.DOWN.isDown) { dy = 1; direction = 'down'; }
 
     const moving = dx !== 0 || dy !== 0;
+
+    this.playerSprite.y -= Math.sin(this.walkCycle) * 1.5;
 
     if (moving) {
       if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
@@ -927,6 +941,24 @@ class GameScene extends Phaser.Scene {
           this.playerSprite.x = newX;
           this.playerSprite.y = newY;
         }
+      }
+
+      this.walkCycle += dt * 12;
+    } else {
+      this.walkCycle = 0;
+    }
+
+    this.playerSprite.y += Math.sin(this.walkCycle) * 1.5;
+
+    if (direction !== this.facingDir || moving) {
+      this.facingDir = direction;
+      const baseKey = 'player_' + this.playerClass;
+      if (direction === 'up') {
+        this.playerSprite.setTexture(baseKey + '_back');
+        this.playerSprite.setScale(1, 1);
+      } else {
+        this.playerSprite.setTexture(baseKey);
+        this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
       }
     }
 
