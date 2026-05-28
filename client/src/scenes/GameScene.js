@@ -239,7 +239,14 @@ class GameScene extends Phaser.Scene {
       if (data.lv) self.showLevelUp(data.nl);
       const ms = self.monsterSprites[data.mid];
       if (ms) {
-        this.tweens.add({ targets: [ms.sprite, ms.hpBar, ms.nameText], alpha: 0, duration: 500, onComplete: () => {
+        for (let i = 0; i < 5; i++) {
+          const px = data.x + (Math.random() - 0.5) * 20;
+          const py = data.y + (Math.random() - 0.5) * 20;
+          const colors = ['#ff4444', '#ff8844', '#ffff44', '#ffcc00', '#ffffff'];
+          const pt = self.add.text(px, py, ['*', '.', 'o', '+', '!'][Math.random() * 5 | 0], { fontSize: '10px', fontFamily: 'monospace', color: colors[Math.random() * colors.length | 0] }).setOrigin(0.5).setDepth(100);
+          self.tweens.add({ targets: pt, x: px + (Math.random() - 0.5) * 30, y: py - 20 - Math.random() * 20, alpha: 0, duration: 500 + Math.random() * 300, onComplete: () => pt.destroy() });
+        }
+        self.tweens.add({ targets: [ms.sprite, ms.hpBar, ms.nameText], alpha: 0, duration: 400, onComplete: () => {
           if (self.monsterSprites[data.mid]) {
             self.monsterSprites[data.mid].sprite.destroy();
             self.monsterSprites[data.mid].hpBar.destroy();
@@ -257,7 +264,16 @@ class GameScene extends Phaser.Scene {
     self.network.on('player_died', (data) => {
       if (data.id === self.myId) {
         self.dead = true;
-        if (self.playerSprite) self.playerSprite.setAlpha(0.3);
+        if (self.playerSprite) {
+          self.playerSprite.setAlpha(0.3);
+          for (let i = 0; i < 6; i++) {
+            const px = self.playerSprite.x + (Math.random() - 0.5) * 20;
+            const py = self.playerSprite.y + (Math.random() - 0.5) * 20;
+            const pt = self.add.text(px, py, ['*', 'x', '+', '!'][Math.random() * 4 | 0], { fontSize: '12px', fontFamily: 'monospace', color: '#ff4444' }).setOrigin(0.5).setDepth(100);
+            self.tweens.add({ targets: pt, x: px + (Math.random() - 0.5) * 40, y: py - 30 - Math.random() * 20, alpha: 0, duration: 800, onComplete: () => pt.destroy() });
+          }
+        }
+        self.cameras.main.shake(200, 0.008);
         self.addChatMessage('System', 'You died! Press R to respawn.', '#ff4444');
       }
     });
@@ -266,8 +282,30 @@ class GameScene extends Phaser.Scene {
       if (data.t === 'damage') {
         const color = data.ty === 'player' ? '#ff4444' : '#ffffff';
         self.showDamageNumber(data.x, data.y, '-' + data.a, color);
+        if (data.ty === 'player' && data.ti === self.myId) {
+          self.cameras.main.shake(100, 0.005);
+          if (self.playerSprite) {
+            self.playerSprite.setTint(0xff4444);
+            self.time.delayedCall(150, () => { if (self.playerSprite && !self.dead) self.playerSprite.clearTint(); });
+          }
+        }
+        if (data.ty === 'monster' && self.monsterSprites[data.ti]) {
+          const ms = self.monsterSprites[data.ti];
+          ms.sprite.setTint(0xffffff);
+          self.time.delayedCall(80, () => { if (ms && ms.sprite) ms.sprite.clearTint(); });
+          for (let i = 0; i < 3; i++) {
+            const px = data.x + (Math.random() - 0.5) * 16;
+            const py = data.y + (Math.random() - 0.5) * 16;
+            const pt = self.add.text(px, py, '*', { fontSize: '8px', fontFamily: 'monospace', color: '#ffff88' }).setOrigin(0.5).setDepth(100);
+            self.tweens.add({ targets: pt, y: py - 20, alpha: 0, duration: 400, onComplete: () => pt.destroy() });
+          }
+        }
       } else if (data.t === 'heal') {
         self.showDamageNumber(data.x, data.y, '+' + data.a, '#44ff44');
+        if (self.playerSprite) {
+          self.playerSprite.setTint(0x44ff44);
+          self.time.delayedCall(200, () => { if (self.playerSprite && !self.dead) self.playerSprite.clearTint(); });
+        }
       }
       if (data.ty === 'player' && data.ti === self.myId) self.updateHUD();
     });
@@ -740,6 +778,9 @@ class GameScene extends Phaser.Scene {
       if (!ps) {
         const g = this.add.graphics().setDepth(12);
         const col = p.color || 0xffffff;
+        const glow = this.add.graphics().setDepth(11);
+        glow.fillStyle(col, 0.2);
+        glow.fillCircle(0, 0, 12);
         g.fillStyle(col);
         if (p.spellKey === 'fireball') {
           g.fillCircle(0, 0, 6);
@@ -750,14 +791,16 @@ class GameScene extends Phaser.Scene {
         } else {
           g.fillCircle(0, 0, 4);
         }
-        ps = { sprite: g };
+        ps = { sprite: g, glow };
         this.projectileSprites[p.id] = ps;
       }
       ps.sprite.setPosition(p.x, p.y);
+      if (ps.glow) ps.glow.setPosition(p.x, p.y);
     }
     for (const id in this.projectileSprites) {
       if (!activeIds.has(parseInt(id))) {
         this.projectileSprites[id].sprite.destroy();
+        if (this.projectileSprites[id].glow) this.projectileSprites[id].glow.destroy();
         delete this.projectileSprites[id];
       }
     }
@@ -766,6 +809,7 @@ class GameScene extends Phaser.Scene {
   clearProjectiles() {
     for (const id in this.projectileSprites) {
       this.projectileSprites[id].sprite.destroy();
+      if (this.projectileSprites[id].glow) this.projectileSprites[id].glow.destroy();
     }
     this.projectileSprites = {};
   }
@@ -851,8 +895,24 @@ class GameScene extends Phaser.Scene {
 
   showLevelUp(level) {
     this.addChatMessage('System', 'LEVEL UP! You are now level ' + level + '!', '#ffcc00');
+    this.cameras.main.shake(300, 0.01);
+    this.cameras.main.flash(500, 255, 255, 200);
     const t = this.add.text(320, 200, 'LEVEL UP!\nLevel ' + level, { fontSize: '24px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 4, align: 'center' }).setOrigin(0.5).setDepth(200);
-    this.tweens.add({ targets: t, scaleX: 1.5, scaleY: 1.5, alpha: 0, duration: 2000, onComplete: () => t.destroy() });
+    this.tweens.add({
+      targets: t, scaleX: 1.8, scaleY: 1.8, alpha: 0, duration: 2000,
+      ease: 'Cubic.easeOut',
+      onComplete: () => t.destroy(),
+    });
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const px = 320 + Math.cos(a) * 40;
+      const py = 200 + Math.sin(a) * 40;
+      const pt = this.add.text(px, py, '+', { fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(200);
+      this.tweens.add({
+        targets: pt, x: px + Math.cos(a) * 60, y: py + Math.sin(a) * 60, alpha: 0, duration: 1000,
+        onComplete: () => pt.destroy(),
+      });
+    }
   }
 
   respawn() {
