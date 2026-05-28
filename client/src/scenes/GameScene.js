@@ -1,7 +1,7 @@
 const TILE_SIZE = 32;
 const COLS = 20;
 const ROWS = 15;
-const SPEED = 120;
+const SPEED = 160;
 const MOVE_THROTTLE = 50;
 const TILE_TEXTURES = ['tile_0', 'tile_1', 'tile_2', 'tile_3', 'tile_4', 'tile_5', 'tile_6', 'tile_7', 'tile_8', 'tile_9', 'tile_10', 'tile_11', 'tile_12'];
 
@@ -129,14 +129,12 @@ class GameScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer) => {
       if (this.isChatting || this.showingInventory) return;
-      if (this.selectedSpell && this.myStats.mp >= 20) {
+      if (this.selectedSpell) {
         this.network.emit('cast_spell', {
           spell: this.selectedSpell,
           toX: Math.round(pointer.x),
           toY: Math.round(pointer.y),
         });
-        this.selectedSpell = null;
-        this.updateSpellBar();
       }
     });
 
@@ -417,23 +415,23 @@ class GameScene extends Phaser.Scene {
     this.spellBarContainer.removeAll(true);
     const bg = this.add.graphics();
     bg.fillStyle(0x000000, 0.7);
-    bg.fillRect(60, 400, 520, 56);
+    bg.fillRect(60, 418, 520, 52);
     this.spellBarContainer.add(bg);
 
     this.spellSlots = [];
     for (let i = 0; i < 5; i++) {
       const slotBg = this.add.graphics();
-      slotBg.fillStyle(0x333333); slotBg.fillRect(70 + i * 102, 406, 96, 44);
-      slotBg.lineStyle(1, 0x666666); slotBg.strokeRect(70 + i * 102, 406, 96, 44);
+      slotBg.fillStyle(0x333333); slotBg.fillRect(70 + i * 102, 424, 96, 40);
+      slotBg.lineStyle(1, 0x666666); slotBg.strokeRect(70 + i * 102, 424, 96, 40);
       this.spellBarContainer.add(slotBg);
 
-      const keyText = this.add.text(74 + i * 102, 408, (i + 1) + '.', { fontSize: '10px', fontFamily: 'monospace', color: '#888888' });
+      const keyText = this.add.text(74 + i * 102, 426, (i + 1) + '.', { fontSize: '10px', fontFamily: 'monospace', color: '#888888' });
       this.spellBarContainer.add(keyText);
 
-      const spellName = this.add.text(90 + i * 102, 408, '', { fontSize: '11px', fontFamily: 'monospace', color: '#ffffff' });
+      const spellName = this.add.text(90 + i * 102, 426, '', { fontSize: '11px', fontFamily: 'monospace', color: '#ffffff' });
       this.spellBarContainer.add(spellName);
 
-      const spellCost = this.add.text(90 + i * 102, 422, '', { fontSize: '9px', fontFamily: 'monospace', color: '#8888ff' });
+      const spellCost = this.add.text(90 + i * 102, 440, '', { fontSize: '9px', fontFamily: 'monospace', color: '#8888ff' });
       this.spellBarContainer.add(spellCost);
 
       const highlight = this.add.graphics();
@@ -462,7 +460,7 @@ class GameScene extends Phaser.Scene {
       slot.highlight.clear();
       if (slot.key === this.selectedSpell) {
         slot.highlight.lineStyle(2, 0xffcc00);
-        slot.highlight.strokeRect(70 + i * 102, 406, 96, 44);
+        slot.highlight.strokeRect(70 + i * 102, 424, 96, 40);
       }
     }
   }
@@ -838,8 +836,8 @@ class GameScene extends Phaser.Scene {
   showChatInput() {
     this.chatInputBg = this.add.graphics().setDepth(200);
     this.chatInputBg.fillStyle(0x000000, 0.8);
-    this.chatInputBg.fillRect(4, 440, 632, 36);
-    this.chatInputText = this.add.text(10, 446, '> ' + this.chatInput + '_', { fontSize: '14px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(200);
+    this.chatInputBg.fillRect(4, 430, 480, 26);
+    this.chatInputText = this.add.text(10, 434, '> ' + this.chatInput + '_', { fontSize: '12px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(200);
   }
 
   hideChatInput() {
@@ -856,28 +854,38 @@ class GameScene extends Phaser.Scene {
   }
 
   addChatMessage(name, text, color) {
-    const maxMsg = 6;
-    const displayName = name.length > 12 ? name.slice(0, 12) + '..' : name;
+    const maxMsg = 5;
+    const isSys = name === 'System';
+    const displayName = isSys ? '' : (name.length > 12 ? name.slice(0, 12) + '..' : name + ':');
     const displayText = text.length > 60 ? text.slice(0, 60) + '..' : text;
-    const msg = displayName + ': ' + displayText;
-    this.chatMessages.push(msg);
-    if (this.chatMessages.length > maxMsg) this.chatMessages.shift();
+    if (isSys) {
+      this.chatMessages.push({ text: displayText, time: Date.now(), sys: true, color: color || '#88ccff' });
+    } else {
+      this.chatMessages.push({ text: displayName + ' ' + displayText, time: Date.now(), sys: false, color: color || '#cccccc' });
+    }
+    while (this.chatMessages.length > maxMsg) this.chatMessages.shift();
     this.renderChatHistory();
   }
 
   renderChatHistory() {
-    const startY = 400;
+    const now = Date.now();
+    let idx = 0;
     for (let i = 0; i < this.chatMessages.length; i++) {
-      let t = this.chatPool[i];
+      const msg = this.chatMessages[i];
+      if (msg.sys && now - msg.time > 10000) continue;
+      let t = this.chatPool[idx];
       if (!t) {
-        t = this.add.text(10, startY + i * 16, '', { fontSize: '11px', fontFamily: 'monospace', color: '#cccccc', stroke: '#000000', strokeThickness: 2, wordWrap: { width: 580 } }).setDepth(150);
+        t = this.add.text(10, 0, '', { fontSize: '11px', fontFamily: 'monospace', color: '#cccccc', stroke: '#000000', strokeThickness: 2, wordWrap: { width: 460 } }).setDepth(150);
         this.chatPool.push(t);
       }
-      t.setText(this.chatMessages[i]);
-      t.setPosition(10, startY + i * 16);
+      t.setText(msg.text);
+      t.setPosition(10, 370 + idx * 15);
+      t.setStyle({ color: msg.color, stroke: '#000000', strokeThickness: 2 });
+      t.setAlpha(msg.sys ? Math.max(0, 1 - (now - msg.time - 8000) / 2000) : 1);
       t.setVisible(true);
+      idx++;
     }
-    for (let i = this.chatMessages.length; i < this.chatPool.length; i++) {
+    for (let i = idx; i < this.chatPool.length; i++) {
       this.chatPool[i].setVisible(false);
     }
   }
@@ -990,12 +998,12 @@ class GameScene extends Phaser.Scene {
   }
 
   showTutorial() {
-    this.sendChatMessage('System', 'WASD/Arrows to move  |  Walk to zone edges to explore new areas', '#88ccff');
-    this.sendChatMessage('System', 'Press 1-5 to select a spell, then click to cast', '#88ccff');
-    this.sendChatMessage('System', 'Click monsters to target them  |  Click items to pick up', '#88ccff');
-    this.sendChatMessage('System', 'Press I for inventory (Use/Equip)  |  Press H for help', '#88ccff');
-    this.sendChatMessage('System', 'Enter to chat  |  R to respawn if you die', '#88ccff');
-    this.sendChatMessage('System', 'Explore all 5 zones and defeat the Aether Lord in the Tower!', '#ffcc00');
+    this.sendChatMessage('System', 'WASD/Arrows to move | Walk to zone edges to explore new areas', '#88ccff');
+    this.sendChatMessage('System', 'Press 1-5 to select a spell, then CLICK anywhere to cast it at that spot', '#88ff88');
+    this.sendChatMessage('System', 'Click monsters to target them | Click items on ground to pick up', '#88ccff');
+    this.sendChatMessage('System', 'Press I for inventory (Use/Equip) | Press H for help', '#88ccff');
+    this.sendChatMessage('System', 'Enter to chat | R to respawn if you die', '#88ccff');
+    this.sendChatMessage('System', 'GOAL: Explore all 5 zones and defeat the Aether Lord in the Tower!', '#ffcc00');
   }
 
   toggleHelp() {

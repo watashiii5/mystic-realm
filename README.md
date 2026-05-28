@@ -8,6 +8,8 @@ Mystic Realm is a solo (or multiplayer) adventure where you pick a class, fight 
 
 **Goal:** Explore all 5 zones and defeat the Aether Lord in the Tower.
 
+**Play online:** [https://mystic-realm.onrender.com/](https://mystic-realm.onrender.com/)
+
 ## Quick Start
 
 ```bash
