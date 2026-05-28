@@ -67,6 +67,8 @@ class GameScene extends Phaser.Scene {
     this.displayXp = 0;
     this.chatBg = null;
     this.chatAnims = [];
+    this.targetRing = null;
+    this.castEffects = [];
   }
 
   create() {
@@ -218,16 +220,20 @@ class GameScene extends Phaser.Scene {
     });
 
     self.network.on('zone_changed', (data) => {
-      self.currentZone = data.zone;
-      self.mapData = data.map;
-      self.renderMap();
-      self.clearMonsters();
-      self.clearProjectiles();
-      self.clearGroundItems();
-      self.targetMonster = null;
-      self.zoneLabel = data.zoneDef?.name || data.zone;
-      if (self.zoneText) self.zoneText.setText(self.zoneLabel);
-      if (data.zoneDef?.lore) self.showZoneLore(data.zoneDef.name || data.zone, data.zoneDef.lore, data.zoneDef.color || '#88ccff');
+      self.cameras.main.fadeOut(200);
+      self.time.delayedCall(250, () => {
+        self.currentZone = data.zone;
+        self.mapData = data.map;
+        self.renderMap();
+        self.clearMonsters();
+        self.clearProjectiles();
+        self.clearGroundItems();
+        self.targetMonster = null;
+        self.zoneLabel = data.zoneDef?.name || data.zone;
+        if (self.zoneText) self.zoneText.setText(self.zoneLabel);
+        if (data.zoneDef?.lore) self.showZoneLore(data.zoneDef.name || data.zone, data.zoneDef.lore, data.zoneDef.color || '#88ccff');
+        self.cameras.main.fadeIn(200);
+      });
     });
 
     self.network.on('monster_list', (monsters) => {
@@ -293,12 +299,15 @@ class GameScene extends Phaser.Scene {
           const ms = self.monsterSprites[data.ti];
           ms.sprite.setTint(0xffffff);
           self.time.delayedCall(80, () => { if (ms && ms.sprite) ms.sprite.clearTint(); });
+          const colors = ['#ffff88', '#ffcc00', '#ffffff', '#88ccff'];
           for (let i = 0; i < 3; i++) {
             const px = data.x + (Math.random() - 0.5) * 16;
             const py = data.y + (Math.random() - 0.5) * 16;
-            const pt = self.add.text(px, py, '*', { fontSize: '8px', fontFamily: 'monospace', color: '#ffff88' }).setOrigin(0.5).setDepth(100);
-            self.tweens.add({ targets: pt, y: py - 20, alpha: 0, duration: 400, onComplete: () => pt.destroy() });
+            const pt = self.add.text(px, py, ['*', '+', '.'][Math.random() * 3 | 0], { fontSize: '8px', fontFamily: 'monospace', color: colors[Math.random() * 4 | 0] }).setOrigin(0.5).setDepth(100);
+            self.tweens.add({ targets: pt, y: py - 20 + (Math.random() - 0.5) * 10, alpha: 0, duration: 400, onComplete: () => pt.destroy() });
           }
+          const impact = self.add.circle(data.x, data.y, 3, 0xffffff, 0.6).setDepth(12);
+          self.tweens.add({ targets: impact, scaleX: 3, scaleY: 3, alpha: 0, duration: 300, onComplete: () => impact.destroy() });
         }
       } else if (data.t === 'heal') {
         self.showDamageNumber(data.x, data.y, '+' + data.a, '#44ff44');
@@ -509,13 +518,17 @@ class GameScene extends Phaser.Scene {
 
   updateSpellBar() {
     if (!this.spellSlots) return;
+    const costs = { magic_bolt: 5, heal: 15, fireball: 12, ice_shard: 10, stone_wall: 20, gale: 8, flame_wave: 18, summon_wolf: 25, teleport: 20, meteor: 30, frost_nova: 22, poison_cloud: 15 };
     for (let i = 0; i < 5; i++) {
       const slot = this.spellSlots[i];
       const spellKey = this.spells[i];
       if (spellKey) {
         const names = { magic_bolt: 'Bolt', heal: 'Heal', fireball: 'Fire', ice_shard: 'Ice', stone_wall: 'Wall', gale: 'Gale', flame_wave: 'FlameW', summon_wolf: 'Wolf', teleport: 'TP', meteor: 'Meteor', frost_nova: 'Nova', poison_cloud: 'Poison' };
         slot.name.setText(names[spellKey] || spellKey);
-        slot.cost.setText('MP:5');
+        const cost = costs[spellKey] || 5;
+        const canCast = this.myStats && this.myStats.mp >= cost;
+        slot.cost.setText('MP:' + cost);
+        slot.cost.setColor(canCast ? '#8888ff' : '#ff4444');
         slot.key = spellKey;
       } else {
         slot.name.setText('--');
@@ -610,10 +623,18 @@ class GameScene extends Phaser.Scene {
       this.targetMonster = mid;
       this.selectedSpell = null;
       this.updateSpellBar();
+      this.showTargetRing(m.x, m.y);
     });
 
     this.monsterSprites[m.id] = { sprite: g, hpBar, nameText, clickZone, boss, maxHp };
     this.updateMonsterHP(m.id, hp, maxHp);
+
+    g.setAlpha(0);
+    this.tweens.add({ targets: g, alpha: 1, duration: 300, ease: 'Cubic.easeOut' });
+    const flashRing = this.add.graphics().setDepth(9);
+    flashRing.lineStyle(2, 0xffffff, 0.5);
+    flashRing.strokeCircle(m.x, m.y, 16);
+    this.tweens.add({ targets: flashRing, scaleX: 2, scaleY: 2, alpha: 0, duration: 400, onComplete: () => flashRing.destroy() });
   }
 
   drawMonsterShape(g, key, color, boss) {
@@ -740,6 +761,7 @@ class GameScene extends Phaser.Scene {
     if (!aliveIds.has(this.targetMonster)) {
       this.targetMonster = null;
       this.targetInfo.setText('');
+      if (this.targetRing) { this.targetRing.destroy(); this.targetRing = null; }
     }
   }
 
@@ -767,6 +789,7 @@ class GameScene extends Phaser.Scene {
     this.monsterSprites = {};
     this.targetMonster = null;
     if (this.targetInfo) this.targetInfo.setText('');
+    if (this.targetRing) { this.targetRing.destroy(); this.targetRing = null; }
   }
 
   updateProjectiles(projectiles) {
@@ -891,6 +914,23 @@ class GameScene extends Phaser.Scene {
     const t = this.add.text(x, y - 10, text, { fontSize: '12px', fontFamily: 'monospace', color: color || '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(100);
     t.targetY = y - 40;
     this.damageTexts.push(t);
+  }
+
+  showTargetRing(x, y) {
+    if (this.targetRing) { this.targetRing.destroy(); this.targetRing = null; }
+    this.targetRing = this.add.graphics().setDepth(7);
+    const pulse = { t: 0 };
+    this.tweens.add({
+      targets: pulse, t: 1, duration: 600, yoyo: true, repeat: -1,
+      onUpdate: () => {
+        if (!this.targetRing || !this.targetMonster) return;
+        const ms = this.monsterSprites[this.targetMonster];
+        if (!ms) return;
+        this.targetRing.clear();
+        this.targetRing.lineStyle(2, 0xffcc00, 0.5 + pulse.t * 0.3);
+        this.targetRing.strokeCircle(ms.sprite.x, ms.sprite.y, 14);
+      },
+    });
   }
 
   showLevelUp(level) {

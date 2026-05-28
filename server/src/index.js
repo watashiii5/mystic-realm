@@ -211,7 +211,8 @@ function monsterAI(zone, monsters, players, now) {
     if (atkCount[pid] > 3 && dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) continue;
     if (dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) {
       m.lastAttack = now;
-      const hit = m.atk - closest.def > 0 ? m.atk - closest.def : 1;
+      let hit = m.atk - closest.def > 0 ? m.atk - closest.def : 1;
+      if (m.boss && m.hp < m.maxHp * 0.5) hit = Math.floor(hit * 2);
       if (m.ranged) {
         addProjectile(-m.id, zone, 'magic_bolt', m.x, m.y, closest.x, closest.y);
       } else {
@@ -326,6 +327,14 @@ function gameLoop() {
     const zoneP = zonePlayers[zone] || [];
     monsterAI(zone, monsters, zoneP, now);
     checkProjectiles(zone, monsters, zoneP);
+
+    for (let pi = 0; pi < zoneP.length; pi++) {
+      const pl = zoneP[pi];
+      if (pl.alive) {
+        if (pl.hp < pl.maxHp) pl.hp = Math.min(pl.maxHp, pl.hp + 0.3);
+        if (pl.mp < pl.maxMp) pl.mp = Math.min(pl.maxMp, pl.mp + 0.15);
+      }
+    }
 
     for (let mi = monsters.length - 1; mi >= 0; mi--) {
       if (!monsters[mi].alive && now - monsters[mi].lastAttack > MONSTER_RESPAWN) {
