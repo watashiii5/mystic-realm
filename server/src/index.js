@@ -116,6 +116,9 @@ function createPlayer(id, data) {
     monstersKilled: saved?.monstersKilled || 0,
     progressMessages: [],
   };
+  if (!saved) {
+    p.inventory = ['wooden_staff', 'starter_robe', 'starter_ring'];
+  }
   applyEquipment(p);
   p.hp = stats.maxHp;
   p.mp = stats.maxMp;
@@ -394,6 +397,7 @@ io.on('connection', (socket) => {
     sp.mk = player.monstersKilled;
     socket.emit('you_joined', { id, player: sp });
     io.to('zone_' + currentZone).emit('player_joined', { id, player: sp });
+    socket.emit('inventory_update', { inventory: player.inventory, spells: player.spells, equipped: player.equipped });
     if (saved) {
       player.inventory = saved.inventory || [];
       player.equipped = saved.equipped || { weapon: null, armor: null, accessory: null };
