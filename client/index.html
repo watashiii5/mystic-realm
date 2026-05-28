@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mystic Realm</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    canvas { display: block; margin: 0 auto; }
+    @font-face {
+      font-family: 'pixel';
+      src: url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    }
+  </style>
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io@4.7.4/client-dist/socket.io.min.js"></script>
+  <script src="/src/network/Network.js"></script>
+  <script src="/src/scenes/BootScene.js"></script>
+  <script src="/src/scenes/MenuScene.js"></script>
+  <script src="/src/scenes/CharCreateScene.js"></script>
+  <script src="/src/scenes/GameScene.js"></script>
+  <script src="/src/main.js"></script>
+</body>
+</html>
