@@ -62,6 +62,67 @@ class BootScene extends Phaser.Scene {
       g.fillRect(24, 22, 4, 4); g.fillRect(6, 26, 4, 4);
     });
 
+    make('tile_9', (g) => {
+      g.fillStyle(0x3a3a4a); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x2a2a3a); g.fillCircle(8, 8, 4);
+      g.fillCircle(20, 16, 3); g.fillCircle(12, 24, 5);
+      g.fillStyle(0x4a4a5a, 0.3); g.fillRect(0, 14, W, 1);
+    });
+
+    make('tile_10', (g) => {
+      g.fillStyle(0x5a4a3a); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x6a5a4a); g.fillRect(4, 2, 8, 8);
+      g.fillRect(18, 10, 10, 6); g.fillRect(6, 18, 6, 10);
+      g.lineStyle(1, 0x4a3a2a); g.strokeRect(4, 2, 8, 8);
+      g.strokeRect(18, 10, 10, 6); g.strokeRect(6, 18, 6, 10);
+    });
+
+    make('tile_11', (g) => {
+      g.fillStyle(0x665544); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x776655); g.fillRect(2, 4, 6, 6);
+      g.fillRect(14, 2, 8, 8); g.fillRect(20, 14, 8, 10);
+      g.fillRect(4, 20, 10, 8);
+      g.lineStyle(1, 0x554433); g.strokeRect(2, 4, 6, 6);
+      g.strokeRect(14, 2, 8, 8); g.strokeRect(20, 14, 8, 10);
+      g.strokeRect(4, 20, 10, 8);
+    });
+
+    make('tile_12', (g) => {
+      g.fillStyle(0x3a3a4a); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x2a2a3a); g.fillRect(0, 0, W, 2);
+      g.fillRect(0, 14, W, 2); g.fillRect(0, 28, W, 2);
+      g.fillStyle(0x4a4a6a); g.fillCircle(6, 8, 2);
+      g.fillCircle(16, 20, 2); g.fillCircle(26, 10, 2);
+    });
+
+    make('tile_5', (g) => {
+      g.fillStyle(0x4a7c2e); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x88ccff, 0.4); g.fillRect(0, 0, W, 4);
+      g.fillStyle(0xffffff, 0.3); g.fillRect(8, 0, 4, 2);
+      g.fillRect(20, 1, 6, 2);
+    });
+
+    make('tile_6', (g) => {
+      g.fillStyle(0x4a7c2e); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x88ccff, 0.4); g.fillRect(0, 28, W, 4);
+      g.fillStyle(0xffffff, 0.3); g.fillRect(6, 29, 4, 2);
+      g.fillRect(18, 30, 6, 2);
+    });
+
+    make('tile_7', (g) => {
+      g.fillStyle(0x4a7c2e); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x88ccff, 0.4); g.fillRect(0, 0, 4, H);
+      g.fillStyle(0xffffff, 0.3); g.fillRect(0, 8, 2, 4);
+      g.fillRect(1, 20, 2, 6);
+    });
+
+    make('tile_8', (g) => {
+      g.fillStyle(0x4a7c2e); g.fillRect(0, 0, W, H);
+      g.fillStyle(0x88ccff, 0.4); g.fillRect(28, 0, 4, H);
+      g.fillStyle(0xffffff, 0.3); g.fillRect(29, 6, 2, 4);
+      g.fillRect(30, 18, 2, 6);
+    });
+
     const drawChar = (g, robe, accent, hat) => {
       g.fillStyle(0x000000); g.fillEllipse(16, 30, 18, 5);
 

@@ -18,7 +18,7 @@ const SPELLS = {
   stone_wall: { name: 'Stone Wall', cost: 20, dmg: 0, desc: 'Place blocking wall', speed: 0, color: 0x886644, radius: 0, aoe: false, wall: true },
   gale: { name: 'Gale', cost: 8, dmg: 8, desc: 'Push enemies back', speed: 350, color: 0xccffcc, radius: 6, aoe: false, knockback: 60 },
   flame_wave: { name: 'Flame Wave', cost: 18, dmg: 20, desc: 'Wide arc fire', speed: 200, color: 0xff6600, radius: 8, aoe: true },
-  summon_wolf: { name: 'Summon Wolf', cost: 25, dmg: 0, desc: 'Summon wolf pet', speed: 0, color: 0xcc8844, radius: 0, aoe: false, summon: 'wolf' },
+  summon_wolf: { name: 'Summon Wolf', cost: 25, dmg: 12, desc: 'Summon wolf pet', speed: 0, color: 0xcc8844, radius: 0, aoe: false, summon: 'wolf' },
   teleport: { name: 'Teleport', cost: 20, dmg: 0, desc: 'Short blink forward', speed: 0, color: 0xcc44ff, radius: 0, aoe: false, blink: 80 },
   meteor: { name: 'Meteor', cost: 30, dmg: 40, desc: 'AoE fire/earth', speed: 150, color: 0xff4400, radius: 12, aoe: true },
   frost_nova: { name: 'Frost Nova', cost: 22, dmg: 15, desc: 'Freeze nearby enemies', speed: 0, color: 0x88ddff, radius: 50, aoe: true, freeze: 2 },
