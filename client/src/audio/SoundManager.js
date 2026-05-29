@@ -61,7 +61,7 @@ class SoundManager {
   _scheduledGain(vol, startTime, dur) {
     if (!this.ctx) return null;
     const g = this.ctx.createGain();
-    const v = vol * this._vol();
+    const v = vol * this._vol() * this.sfxVolume;
     g.gain.setValueAtTime(0, startTime);
     g.gain.linearRampToValueAtTime(v, startTime + 0.005);
     g.gain.setValueAtTime(v, startTime + dur - 0.01);
@@ -467,6 +467,7 @@ class SoundManager {
 
   stopAmbient() {
     this._ambientPlaying = false;
+    if (this._ambientTimer) { clearTimeout(this._ambientTimer); this._ambientTimer = null; }
     if (this._ambientNodes) {
       this._ambientNodes.forEach(n => { try { n.stop(); } catch (e) {} });
       this._ambientNodes = null;

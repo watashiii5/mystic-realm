@@ -620,7 +620,8 @@ io.on('connection', (socket) => {
     if (!player) return;
     const tileX = data.x / TILE_SIZE | 0;
     const tileY = data.y / TILE_SIZE | 0;
-    if (isWalkable(player.zone, tileX, tileY)) { player.x = data.x; player.y = data.y; }
+    const dist = Math.hypot(data.x - player.x, data.y - player.y);
+    if (dist < TILE_SIZE * 2 && isWalkable(player.zone, tileX, tileY)) { player.x = data.x; player.y = data.y; }
     player.direction = data.direction || player.direction;
     player.moving = data.moving !== undefined ? data.moving : false;
     if (data.sprinting && player.moving && player.mp > 0) {

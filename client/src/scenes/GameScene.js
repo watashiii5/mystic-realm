@@ -1525,7 +1525,7 @@ class GameScene extends Phaser.Scene {
     this.isSprinting = sprinting && moving;
     if (this.isSprinting && !wasSprinting) window.soundManager.playSprint();
 
-    const dt = delta / 1000;
+    const dt = Math.min(delta / 1000, 0.05);
     const speedMult = sprinting ? 2 : 1;
 
     if (moving) {

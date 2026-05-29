@@ -75,9 +75,7 @@ class SettingsPanel {
     muteZone.on('pointerdown', () => {
       const m = window.soundManager.toggleMute();
       muteBtnText.setText(m ? 'UNMUTE' : 'MUTE');
-      Object.keys(sliders).forEach(k => {
-        sliders[k].zone.emit('pointerdown', { x: sliders[k].x + sliders[k].w * window.soundManager['getVolumePercent'](rows[k] ? rows[k].vol : 'master') / 100, isDown: true });
-      });
+      this._saveSettings();
       window.soundManager.playMenuSelect();
     });
     muteZone.on('pointerover', () => window.soundManager.playMenuHover());
@@ -164,9 +162,9 @@ class SettingsPanel {
     try {
       const sm = window.soundManager;
       const data = {
-        masterVolume: sm.masterGain?.gain?.value ?? 0.5,
-        sfxVolume: sm.sfxGain?.gain?.value ?? 0.5,
-        musicVolume: sm.musicGain?.gain?.value ?? 0.3,
+        masterVolume: sm.masterVolume ?? 0.5,
+        sfxVolume: sm.sfxVolume ?? 0.7,
+        musicVolume: sm.musicVolume ?? 0.3,
         muted: sm.muted || false,
       };
       localStorage.setItem('mysticRealm_settings', JSON.stringify(data));
