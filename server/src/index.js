@@ -394,6 +394,67 @@ function checkProjectiles(zone, monsters, players) {
       }
     }
 
+    if (p.ownerId < 0) {
+      for (let pi2 = 0; pi2 < players.length; pi2++) {
+        const pl = players[pi2];
+        if (!pl.alive || pl.zone !== zone) continue;
+        if (distSq(pl.x, pl.y, p.x, p.y) < 400) {
+          const dmg = p.dmg - pl.def > 0 ? (p.dmg | 0) - pl.def : 1;
+          pl.hp -= dmg;
+          io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'player', ti: pl.id, a: dmg, x: pl.x, y: pl.y });
+          if (pl.hp <= 0) { pl.hp = 0; pl.alive = false; const xpLost = penalizeDeath(pl); io.to('zone_' + zone).emit('player_died', { id: pl.id, xpLost }); }
+          toRemove.push(pi);
+          break;
+        }
+      }
+    }
+  }
+  for (let ri = toRemove.length - 1; ri >= 0; ri--) {
+    projs.splice(toRemove[ri], 1);
+  }
+  toRemove.length = 0;
+}
+
+const plSer = p => ({ id: p.id, n: p.name, c: p.class, x: p.x, y: p.y, h: p.hp, mh: p.maxHp, m: p.mp, mm: p.maxMp, l: p.level, a: p.alive, d: p.direction, mv: p.moving, xp: p.xp });
+const monSer = m => ({ id: m.id, k: m.key, n: m.name, x: m.x, y: m.y, h: m.hp, mh: m.maxHp, c: m.color, a: m.alive, b: m.boss || false });
+const projSer = p => ({ id: p.id, x: p.x, y: p.y, c: p.color, sk: p.spellKey });
+
+function penalizeDeath(player) {
+  const xpLoss = Math.floor(player.xp * 0.1);
+  player.xp = Math.max(0, player.xp - xpLoss);
+  return xpLoss;
+}
+
+function gameLoop() {
+  const now = Date.now();
+  const allPlayers = Object.values(gameState.players);
+  const playerCount = allPlayers.length;
+
+  const zonePlayers = {};
+  for (let zi = 0; zi < ZONE_KEYS.length; zi++) {
+    const z = ZONE_KEYS[zi];
+    zonePlayers[z] = [];
+  }
+  for (let pi = 0; pi < playerCount; pi++) {
+    const zp = zonePlayers[allPlayers[pi].zone];
+    if (zp) zp.push(allPlayers[pi]);
+  }
+
+  for (let zi = 0; zi < ZONE_KEYS.length; zi++) {
+    const zone = ZONE_KEYS[zi];
+    const room = io.sockets.adapter.rooms.get('zone_' + zone);
+    const hasPlayers = room && room.size > 0;
+
+    if (!hasPlayers) {
+      gameState.projectiles = gameState.projectiles.filter(p => p.zone !== zone);
+      continue;
+    }
+
+    const monsters = getMonstersInZone(zone);
+    const zoneP = zonePlayers[zone] || [];
+    monsterAI(zone, monsters, zoneP, now);
+    checkProjectiles(zone, monsters, zoneP);
+
     for (let pi = 0; pi < zoneP.length; pi++) {
       const pl = zoneP[pi];
       if (pl.alive) {
@@ -406,6 +467,10 @@ function checkProjectiles(zone, monsters, players) {
             io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'player', ti: pl.id, a: pDmg, x: pl.x, y: pl.y });
             if (pl.hp <= 0) { pl.hp = 0; pl.alive = false; const xpLost = penalizeDeath(pl); io.to('zone_' + zone).emit('player_died', { id: pl.id, xpLost }); }
           }
+        } else {
+          pl.poisonDmg = 0;
+          if (pl.hp < pl.maxHp) pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.005);
+          if (pl.mp < pl.maxMp) pl.mp = Math.min(pl.maxMp, pl.mp + pl.maxMp * 0.003);
         }
       }
     }
