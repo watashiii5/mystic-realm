@@ -892,14 +892,12 @@ class GameScene extends Phaser.Scene {
     if (!m || !m.id || this.monsterSprites[m.id]) return;
     const key = m.k || m.key;
     const name = m.n || m.name;
-    const color = m.c !== undefined ? m.c : (m.color !== undefined ? m.color : 0xff0000);
     const boss = m.b !== undefined ? m.b : (m.boss || false);
     const hp = m.h !== undefined ? m.h : m.hp;
     if (boss) window.soundManager.playBossRoar();
     const maxHp = m.mh !== undefined ? m.mh : m.maxHp;
-    const g = this.add.graphics();
-    this.drawMonsterShape(g, key, color, boss);
-    g.setPosition(m.x, m.y).setDepth(8);
+    const texKey = boss ? 'monster_boss' : 'monster_' + key;
+    const sprite = this.add.image(m.x, m.y, texKey).setDepth(8);
 
     const hpBar = this.add.graphics().setDepth(9);
 
@@ -914,109 +912,15 @@ class GameScene extends Phaser.Scene {
       this.showTargetRing(m.x, m.y);
     });
 
-    this.monsterSprites[m.id] = { sprite: g, hpBar, nameText, clickZone, boss, maxHp, _prevHp: hp, _statusGfx: null, _statusTypes: [] };
+    this.monsterSprites[m.id] = { sprite, hpBar, nameText, clickZone, boss, maxHp, _prevHp: hp, _statusGfx: null };
     this.updateMonsterHP(m.id, hp, maxHp);
 
-    g.setAlpha(0);
-    this.tweens.add({ targets: g, alpha: 1, duration: 300, ease: 'Cubic.easeOut' });
+    sprite.setAlpha(0);
+    this.tweens.add({ targets: sprite, alpha: 1, duration: 300, ease: 'Cubic.easeOut' });
     const flashRing = this.add.graphics().setDepth(9);
     flashRing.lineStyle(2, 0xffffff, 0.5);
     flashRing.strokeCircle(m.x, m.y, 16);
     this.tweens.add({ targets: flashRing, scaleX: 2, scaleY: 2, alpha: 0, duration: 400, onComplete: () => flashRing.destroy() });
-  }
-
-  drawMonsterShape(g, key, color, boss) {
-    if (boss) {
-      g.fillStyle(color); g.fillCircle(0, 0, 14);
-      g.fillStyle(0xffcc00); g.lineStyle(2, 0xffcc00); g.strokeCircle(0, 0, 16);
-      g.fillStyle(0xffcc00); g.fillRect(-4, -18, 8, 4); g.fillRect(-6, -16, 12, 3);
-      return;
-    }
-    switch (key) {
-      case 'slime':
-        g.fillStyle(color); g.fillEllipse(0, 2, 14, 10);
-        g.fillStyle(0x000000); g.fillCircle(-3, 0, 1.5); g.fillCircle(3, 0, 1.5);
-        break;
-      case 'rabbit':
-        g.fillStyle(color); g.fillEllipse(0, 2, 10, 12);
-        g.fillStyle(color); g.fillEllipse(-3, -8, 4, 8); g.fillEllipse(3, -8, 4, 8);
-        g.fillStyle(0x000000); g.fillCircle(-2, 0, 1); g.fillCircle(2, 0, 1);
-        break;
-      case 'sprite':
-        g.fillStyle(color, 0.7); g.fillCircle(0, 0, 8);
-        g.fillStyle(0xffffff, 0.4); g.fillCircle(-2, -2, 3);
-        g.lineStyle(1, color); g.lineBetween(-8, 0, 8, 0);
-        g.lineBetween(0, -8, 0, 8);
-        break;
-      case 'wolf':
-        g.fillStyle(color); g.fillTriangle(-8, 6, 8, 6, 0, -8);
-        g.fillStyle(0x000000); g.fillCircle(-3, -2, 1.5); g.fillCircle(3, -2, 1.5);
-        break;
-      case 'treant':
-        g.fillStyle(0x5a3a1a); g.fillRect(-3, 0, 6, 12);
-        g.fillStyle(color); g.fillCircle(0, -4, 8);
-        g.fillStyle(0x3a7a1a); g.fillRect(-8, -2, 3, 6); g.fillRect(5, -2, 3, 6);
-        g.fillStyle(0x000000); g.fillCircle(-2, -6, 1); g.fillCircle(2, -6, 1);
-        break;
-      case 'spider':
-        g.fillStyle(color); g.fillCircle(0, 0, 6);
-        g.lineStyle(1, color); g.lineBetween(-2, -2, -8, -6); g.lineBetween(2, -2, 8, -6);
-        g.lineBetween(-2, 2, -8, 6); g.lineBetween(2, 2, 8, 6);
-        g.lineBetween(-2, 0, -7, 2); g.lineBetween(2, 0, 7, 2);
-        g.fillStyle(0xff0000, 0.8); g.fillCircle(-2, -1, 1.5); g.fillCircle(2, -1, 1.5);
-        break;
-      case 'bat':
-        g.fillStyle(color); g.fillTriangle(-8, 4, 8, 4, 0, -8);
-        g.fillStyle(color); g.fillTriangle(-8, 4, -2, -2, -4, 6);
-        g.fillStyle(color); g.fillTriangle(8, 4, 2, -2, 4, 6);
-        g.fillStyle(0xff0000, 0.8); g.fillCircle(-1, -2, 1); g.fillCircle(1, -2, 1);
-        break;
-      case 'skeleton':
-        g.fillStyle(color); g.fillRect(-2, -6, 4, 8);
-        g.fillStyle(color); g.fillCircle(0, -8, 4);
-        g.lineStyle(1.5, color); g.lineBetween(-4, -3, -8, 4); g.lineBetween(4, -3, 8, 4);
-        g.lineBetween(-2, 2, -5, 8); g.lineBetween(2, 2, 5, 8);
-        g.fillStyle(0x000000); g.fillCircle(-1.5, -9, 1); g.fillCircle(1.5, -9, 1);
-        break;
-      case 'crystal':
-        g.fillStyle(color); g.fillTriangle(0, -8, -6, 4, 6, 4);
-        g.fillStyle(color, 0.6); g.fillTriangle(0, -4, -3, 4, 3, 4);
-        g.fillStyle(0xffffff, 0.4); g.fillRect(-1, -6, 2, 4);
-        break;
-      case 'golem':
-        g.fillStyle(color); g.fillRect(-6, -4, 12, 12);
-        g.fillStyle(color); g.fillRect(-8, 8, 3, 4); g.fillRect(5, 8, 3, 4);
-        g.fillStyle(0x000000); g.fillCircle(-2, 0, 1.5); g.fillCircle(2, 0, 1.5);
-        g.fillStyle(0x444422); g.fillRect(-3, 4, 6, 2);
-        break;
-      case 'phantom':
-        g.fillStyle(color, 0.6); g.fillTriangle(-8, 6, 8, 6, 0, -10);
-        g.fillStyle(color, 0.3); g.fillTriangle(-6, 8, 6, 8, 0, 0);
-        g.fillStyle(0xffffff, 0.3); g.fillCircle(-2, -3, 2); g.fillCircle(2, -3, 2);
-        break;
-      case 'wraith':
-        g.fillStyle(color); g.fillEllipse(0, 2, 12, 14);
-        g.fillStyle(0x000000); g.fillCircle(-3, -1, 1.5); g.fillCircle(3, -1, 1.5);
-        g.fillStyle(0xff0000, 0.5); g.fillCircle(-3, -1, 0.8); g.fillCircle(3, -1, 0.8);
-        g.fillStyle(color, 0.3); g.fillTriangle(-8, 6, 8, 6, 0, 12);
-        break;
-      case 'mage':
-        g.fillStyle(color); g.fillRect(-4, -4, 8, 12);
-        g.fillStyle(color); g.fillCircle(0, -6, 6);
-        g.fillStyle(0x000000); g.fillCircle(-2, -7, 1); g.fillCircle(2, -7, 1);
-        g.fillStyle(0xcc88ff, 0.6); g.fillCircle(0, -6, 8);
-        break;
-      case 'elemental':
-        g.fillStyle(color, 0.7); g.fillCircle(0, 0, 10);
-        g.fillStyle(color, 0.4); g.fillCircle(0, 0, 6);
-        g.fillStyle(0xffffff, 0.5); g.fillCircle(-2, -2, 3); g.fillCircle(2, 2, 2);
-        g.lineStyle(1, color, 0.5); g.lineBetween(-10, 0, 10, 0);
-        g.lineBetween(0, -10, 0, 10);
-        break;
-      default:
-        g.fillStyle(color); g.fillCircle(0, 0, 8);
-        g.fillStyle(0x000000); g.fillCircle(-2, -1, 1.5); g.fillCircle(2, -1, 1.5);
-    }
   }
 
   updateMonsters(monsters) {

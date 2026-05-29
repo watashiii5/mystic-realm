@@ -221,6 +221,44 @@ class BootScene extends Phaser.Scene {
       g.fillStyle(0xffffff, 0.5); g.fillCircle(15, 15, 2);
     });
 
+    /* --- Monster textures --- */
+
+    const drawSlime = (g, c) => { g.fillStyle(c); g.fillEllipse(16, 18, 14, 10); g.fillStyle(0x000000); g.fillCircle(13, 16, 1.5); g.fillCircle(19, 16, 1.5); };
+    const drawRabbit = (g, c) => { g.fillStyle(c); g.fillEllipse(16, 18, 10, 12); g.fillStyle(c); g.fillEllipse(13, 8, 4, 8); g.fillEllipse(19, 8, 4, 8); g.fillStyle(0x000000); g.fillCircle(14, 16, 1); g.fillCircle(18, 16, 1); };
+    const drawSprite = (g, c) => { g.fillStyle(c, 0.7); g.fillCircle(16, 16, 8); g.fillStyle(0xffffff, 0.4); g.fillCircle(14, 14, 3); g.fillCircle(18, 14, 3); g.lineStyle(1, c, 0.5); g.lineBetween(8, 16, 24, 16); g.lineBetween(16, 8, 16, 24); };
+    const drawWolf = (g, c) => { g.fillStyle(c); g.fillTriangle(8, 22, 24, 22, 16, 8); g.fillStyle(0x000000); g.fillCircle(13, 14, 1.5); g.fillCircle(19, 14, 1.5); };
+    const drawTreant = (g) => { g.fillStyle(0x5a3a1a); g.fillRect(13, 16, 6, 12); g.fillStyle(0x44aa22); g.fillCircle(16, 12, 8); g.fillStyle(0x3a7a1a); g.fillRect(8, 14, 3, 6); g.fillRect(21, 14, 3, 6); g.fillStyle(0x000000); g.fillCircle(14, 10, 1); g.fillCircle(18, 10, 1); };
+    const drawSpider = (g, c) => { g.fillStyle(c); g.fillCircle(16, 16, 6); g.lineStyle(1, c); g.lineBetween(14, 14, 8, 10); g.lineBetween(18, 14, 24, 10); g.lineBetween(14, 18, 8, 22); g.lineBetween(18, 18, 24, 22); g.lineBetween(14, 16, 9, 18); g.lineBetween(18, 16, 23, 18); g.fillStyle(0xff0000, 0.8); g.fillCircle(14, 15, 1.5); g.fillCircle(18, 15, 1.5); };
+    const drawBat = (g, c) => { g.fillStyle(c); g.fillTriangle(8, 20, 24, 20, 16, 8); g.fillStyle(c); g.fillTriangle(8, 20, 14, 14, 12, 22); g.fillStyle(c); g.fillTriangle(24, 20, 18, 14, 20, 22); g.fillStyle(0xff0000, 0.8); g.fillCircle(15, 14, 1); g.fillCircle(17, 14, 1); };
+    const drawSkeleton = (g, c) => { g.fillStyle(c); g.fillRect(14, 10, 4, 8); g.fillStyle(c); g.fillCircle(16, 8, 4); g.lineStyle(1.5, c); g.lineBetween(12, 13, 8, 20); g.lineBetween(20, 13, 24, 20); g.lineBetween(14, 18, 11, 24); g.lineBetween(18, 18, 21, 24); g.fillStyle(0x000000); g.fillCircle(14.5, 7, 1); g.fillCircle(17.5, 7, 1); };
+    const drawCrystal = (g, c) => { g.fillStyle(c); g.fillTriangle(16, 8, 10, 20, 22, 20); g.fillStyle(c, 0.6); g.fillTriangle(16, 12, 13, 20, 19, 20); g.fillStyle(0xffffff, 0.4); g.fillRect(15, 10, 2, 4); };
+    const drawGolem = (g, c) => { g.fillStyle(c); g.fillRect(10, 12, 12, 12); g.fillStyle(c); g.fillRect(8, 24, 3, 4); g.fillRect(21, 24, 3, 4); g.fillStyle(0x000000); g.fillCircle(14, 16, 1.5); g.fillCircle(20, 16, 1.5); g.fillStyle(0x444422); g.fillRect(13, 20, 6, 2); };
+    const drawPhantom = (g, c) => { g.fillStyle(c, 0.6); g.fillTriangle(8, 22, 24, 22, 16, 6); g.fillStyle(c, 0.3); g.fillTriangle(10, 24, 22, 24, 16, 16); g.fillStyle(0xffffff, 0.3); g.fillCircle(14, 13, 2); g.fillCircle(18, 13, 2); };
+    const drawWraith = (g, c) => { g.fillStyle(c); g.fillEllipse(16, 18, 12, 14); g.fillStyle(0x000000); g.fillCircle(13, 15, 1.5); g.fillCircle(19, 15, 1.5); g.fillStyle(0xff0000, 0.5); g.fillCircle(13, 15, 0.8); g.fillCircle(19, 15, 0.8); g.fillStyle(c, 0.3); g.fillTriangle(8, 22, 24, 22, 16, 28); };
+    const drawMage = (g, c) => { g.fillStyle(c); g.fillRect(12, 12, 8, 12); g.fillStyle(c); g.fillCircle(16, 10, 6); g.fillStyle(0x000000); g.fillCircle(14, 9, 1); g.fillCircle(18, 9, 1); g.fillStyle(0xcc88ff, 0.6); g.fillCircle(16, 10, 8); };
+    const drawElemental = (g, c) => { g.fillStyle(c, 0.7); g.fillCircle(16, 16, 10); g.fillStyle(c, 0.4); g.fillCircle(16, 16, 6); g.fillStyle(0xffffff, 0.5); g.fillCircle(14, 14, 3); g.fillCircle(18, 18, 2); g.lineStyle(1, c, 0.5); g.lineBetween(6, 16, 26, 16); g.lineBetween(16, 6, 16, 26); };
+    const drawBoss = (g) => {
+      g.fillStyle(0xffcc00); g.fillCircle(16, 16, 14); g.fillStyle(0xffaa00); g.fillCircle(16, 16, 10); g.fillStyle(0x000000); g.fillCircle(13, 14, 2); g.fillCircle(19, 14, 2); g.fillStyle(0xffffff); g.fillCircle(14, 13, 0.8); g.fillCircle(20, 13, 0.8);
+      g.fillStyle(0xffcc00); g.fillRect(10, 4, 12, 4); g.fillRect(10, 2, 12, 3); g.fillStyle(0xffaa00); g.fillRect(8, 4, 16, 2); g.fillStyle(0xff6600); g.fillCircle(16, 2, 2);
+      g.fillStyle(0x000000); g.fillRect(12, 20, 8, 2); g.fillStyle(0xffcc00, 0.5); g.strokeCircle(16, 16, 16);
+    };
+
+    make('monster_slime', (g) => drawSlime(g, 0x44cc44));
+    make('monster_rabbit', (g) => drawRabbit(g, 0xcc8844));
+    make('monster_sprite', (g) => drawSprite(g, 0x88ddff));
+    make('monster_wolf', (g) => drawWolf(g, 0x886644));
+    make('monster_treant', drawTreant);
+    make('monster_spider', (g) => drawSpider(g, 0x884422));
+    make('monster_bat', (g) => drawBat(g, 0x664466));
+    make('monster_skeleton', (g) => drawSkeleton(g, 0xcccccc));
+    make('monster_crystal', (g) => drawCrystal(g, 0xaa66ff));
+    make('monster_golem', (g) => drawGolem(g, 0x888866));
+    make('monster_phantom', (g) => drawPhantom(g, 0xccccff));
+    make('monster_wraith', (g) => drawWraith(g, 0x664488));
+    make('monster_mage', (g) => drawMage(g, 0x8844cc));
+    make('monster_elemental', (g) => drawElemental(g, 0x44aaff));
+    make('monster_boss', drawBoss);
+
     this.scene.start('MenuScene');
   }
 }
