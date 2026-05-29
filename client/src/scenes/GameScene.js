@@ -79,6 +79,8 @@ class GameScene extends Phaser.Scene {
     this.groundItemSprites = {};
     this.keys = {};
     this.lastMoveSent = 0;
+    this.moveVx = 0;
+    this.moveVy = 0;
     this.chatMessages = [];
     this.chatInput = '';
     this.isChatting = false;
@@ -833,7 +835,7 @@ class GameScene extends Phaser.Scene {
     const sprite = this.add.image(playerData.x, playerData.y, texKey).setDepth(10);
     const nameText = this.add.text(0, -20, playerData.n || playerData.name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
     const hpBar = this.add.graphics();
-    this.otherPlayers[id] = { sprite, nameText, hpBar, walkCycle: Math.random() * Math.PI * 2, serverMoving: false };
+    this.otherPlayers[id] = { sprite, nameText, hpBar, walkCycle: Math.random() * Math.PI * 2, serverMoving: false, moveVx: 0, moveVy: 0 };
   }
 
   removeOtherPlayer(id) {
@@ -856,7 +858,11 @@ class GameScene extends Phaser.Scene {
         pObj = this.otherPlayers[pData.id];
       }
       if (pObj) {
-        pObj.sprite.setPosition(pData.x, pData.y);
+        pObj.prevX = pObj.sprite.x;
+        pObj.prevY = pObj.sprite.y;
+        pObj.targetX = pData.x;
+        pObj.targetY = pData.y;
+        pObj.lastUpdate = this.time.now;
         pObj.nameText.setPosition(pData.x, pData.y - 20);
         pObj.sprite.setAlpha((pData.a !== undefined ? pData.a : pData.alive) ? 1 : 0.3);
         const otherDir = pData.d || 'down';
@@ -1562,32 +1568,50 @@ class GameScene extends Phaser.Scene {
     this.isSprinting = sprinting && moving;
     if (this.isSprinting && !wasSprinting) window.soundManager.playSprint();
 
+    const dt = delta / 1000;
+    const speedMult = sprinting ? 2 : 1;
+
     if (moving) {
       if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+      const targetVx = dx * SPEED * speedMult;
+      const targetVy = dy * SPEED * speedMult;
+      const accel = 15;
+      this.moveVx += (targetVx - this.moveVx) * Math.min(1, accel * dt);
+      this.moveVy += (targetVy - this.moveVy) * Math.min(1, accel * dt);
+    } else {
+      const decel = 10;
+      this.moveVx *= Math.max(0, 1 - decel * dt);
+      this.moveVy *= Math.max(0, 1 - decel * dt);
+    }
 
-      const dt = delta / 1000;
-      const speedMult = sprinting ? 2 : 1;
-      let newX = this.playerSprite.x + dx * SPEED * speedMult * dt;
-      let newY = this.playerSprite.y + dy * SPEED * speedMult * dt;
-
+    if (Math.abs(this.moveVx) > 0.1 || Math.abs(this.moveVy) > 0.1) {
       const margin = 16;
+      let newX = this.playerSprite.x + this.moveVx * dt;
+      let newY = this.playerSprite.y + this.moveVy * dt;
       newX = Phaser.Math.Clamp(newX, margin, COLS * TILE_SIZE - margin);
       newY = Phaser.Math.Clamp(newY, margin, ROWS * TILE_SIZE - margin);
 
-      const tileX = Math.floor(newX / TILE_SIZE);
-      const tileY = Math.floor(newY / TILE_SIZE);
+      const canWalk = (x, y) => {
+        const tx = Math.floor(x / TILE_SIZE);
+        const ty = Math.floor(y / TILE_SIZE);
+        if (!this.mapData || !this.mapData[ty] || this.mapData[ty][tx] === undefined) return true;
+        const t = this.mapData[ty][tx];
+        return t === 0 || t === 4 || t === 5 || t === 6 || t === 7 || t === 8 || t === 9 || t === 10 || t === 11 || t === 12;
+      };
 
-      if (this.mapData && this.mapData[tileY] && this.mapData[tileY][tileX] !== undefined) {
-        const tile = this.mapData[tileY][tileX];
-        if (tile === 0 || tile === 4 || tile === 5 || tile === 6 || tile === 7 || tile === 8 || tile === 9 || tile === 10 || tile === 11 || tile === 12) {
-          this.playerSprite.x = newX;
-          this.playerSprite.y = newY;
-        }
-      } else {
+      if (canWalk(newX, newY)) {
         this.playerSprite.x = newX;
         this.playerSprite.y = newY;
+      } else {
+        if (canWalk(newX, this.playerSprite.y)) { this.playerSprite.x = newX; this.moveVy = 0; }
+        else { this.moveVx = 0; }
+        if (canWalk(this.playerSprite.x, newY)) { this.playerSprite.y = newY; this.moveVx = 0; }
+        else { this.moveVy = 0; }
       }
+    }
 
+    const isMoving = Math.abs(this.moveVx) > 1 || Math.abs(this.moveVy) > 1;
+    if (isMoving) {
       this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
 
       this.walkCycle += delta * (sprinting ? 0.015 : 0.01);
@@ -1648,7 +1672,11 @@ class GameScene extends Phaser.Scene {
 
     for (const oid in this.otherPlayers) {
       const op = this.otherPlayers[oid];
-      if (!op.sprite) continue;
+      if (!op.sprite || op.targetX === undefined) continue;
+      const elapsed = time - op.lastUpdate;
+      const t = Math.min(elapsed / 50, 1);
+      op.sprite.x = op.prevX + (op.targetX - op.prevX) * t;
+      op.sprite.y = op.prevY + (op.targetY - op.prevY) * t;
       if (op.serverMoving) {
         op.walkCycle += delta * 0.01;
         op.sprite.y += Math.sin(op.walkCycle) * 2;
@@ -1718,7 +1746,7 @@ class GameScene extends Phaser.Scene {
     }
 
     if (this.minimap && this.playerSprite) {
-      const otherPlayers = this.otherPlayerSprites ? Object.values(this.otherPlayerSprites).map(p => ({ x: p.sprite.x, y: p.sprite.y, a: p.sprite.alpha > 0.5 })) : [];
+      const otherPlayers = Object.values(this.otherPlayers).map(p => ({ x: p.sprite.x, y: p.sprite.y, a: p.sprite.alpha > 0.5 }));
       const monsters = this.monsterSprites ? Object.values(this.monsterSprites).map(m => ({ x: m.sprite.x, y: m.sprite.y, boss: m.boss })) : [];
       this.minimap.update(this.playerSprite.x, this.playerSprite.y, monsters, otherPlayers);
     }
