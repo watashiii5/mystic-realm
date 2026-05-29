@@ -109,12 +109,6 @@ class MenuScene extends Phaser.Scene {
       }
     });
 
-    this.input.on('pointerdown', () => {
-      if (this.settingsPanel && this.settingsPanel.visible) return;
-      window.soundManager.playMenuSelect();
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.time.delayedCall(300, () => this.scene.start('CharCreateScene'));
-    });
   }
 
   _createButton(x, y, text, color, onClick) {
