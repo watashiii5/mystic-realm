@@ -833,7 +833,7 @@ class GameScene extends Phaser.Scene {
     const sprite = this.add.image(playerData.x, playerData.y, texKey).setDepth(10);
     const nameText = this.add.text(0, -20, playerData.n || playerData.name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
     const hpBar = this.add.graphics();
-    this.otherPlayers[id] = { sprite, nameText, hpBar };
+    this.otherPlayers[id] = { sprite, nameText, hpBar, walkCycle: Math.random() * Math.PI * 2, serverMoving: false };
   }
 
   removeOtherPlayer(id) {
@@ -859,6 +859,11 @@ class GameScene extends Phaser.Scene {
         pObj.sprite.setPosition(pData.x, pData.y);
         pObj.nameText.setPosition(pData.x, pData.y - 20);
         pObj.sprite.setAlpha((pData.a !== undefined ? pData.a : pData.alive) ? 1 : 0.3);
+        const otherDir = pData.d || 'down';
+        const otherClass = pData.c || 'mage';
+        pObj.sprite.setTexture(otherDir === 'up' ? 'player_' + otherClass + '_back' : 'player_' + otherClass);
+        pObj.sprite.setScale(otherDir === 'left' ? -1 : 1, 1);
+        pObj.serverMoving = pData.mv || false;
         pObj.hpBar.clear();
         const ch = pData.h !== undefined ? pData.h : pData.hp;
         const cmh = pData.mh !== undefined ? pData.mh : pData.maxHp;
@@ -1585,18 +1590,22 @@ class GameScene extends Phaser.Scene {
 
       this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
 
-      this.walkCycle += delta * (sprinting ? 0.012 : 0.008);
-      this.walkBob = Math.sin(this.walkCycle) * 2;
+      this.walkCycle += delta * (sprinting ? 0.015 : 0.01);
+      this.walkBob = Math.sin(this.walkCycle) * 3;
+      const walkSway = Math.cos(this.walkCycle * 1.3) * 1.5;
       this.playerSprite.y += this.walkBob;
+      this.playerSprite.x += walkSway;
+      this.playerSprite.rotation = Math.sin(this.walkCycle * 2) * 0.04;
 
       this.walkSoundTimer -= delta;
       if (this.walkSoundTimer <= 0) {
         window.soundManager.playWalk();
-        this.walkSoundTimer = sprinting ? 250 : 380;
+        this.walkSoundTimer = sprinting ? 300 : 450;
       }
     } else {
       this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
       this.walkBob = 0;
+      this.playerSprite.rotation = 0;
     }
 
     if (this.isSprinting) {
@@ -1635,6 +1644,15 @@ class GameScene extends Phaser.Scene {
     }
     if (this.equipmentOverlay && this.playerSprite) {
       this.equipmentOverlay.setPosition(this.playerSprite.x, this.playerSprite.y);
+    }
+
+    for (const oid in this.otherPlayers) {
+      const op = this.otherPlayers[oid];
+      if (!op.sprite) continue;
+      if (op.serverMoving) {
+        op.walkCycle += delta * 0.01;
+        op.sprite.y += Math.sin(op.walkCycle) * 2;
+      }
     }
 
     if (direction !== this.facingDir || (moving && direction !== this.facingDir)) {
