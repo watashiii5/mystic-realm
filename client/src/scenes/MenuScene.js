@@ -4,6 +4,7 @@ class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    this.events.on('shutdown', this.shutdown, this);
     this.cameras.main.setBackgroundColor('#0a0a1e');
     const cx = 320;
     const cy = 240;

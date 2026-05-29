@@ -73,6 +73,7 @@ class GameScene extends Phaser.Scene {
     this.tileSprites = [];
     this.playerSprite = null;
     this.otherPlayers = {};
+    this.otherPlayerSprites = {};
     this.monsterSprites = {};
     this.projectileSprites = {};
     this.groundItemSprites = {};
@@ -134,6 +135,7 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.events.on('shutdown', this.shutdown, this);
     this.cameras.main.setBackgroundColor('#1a1a2e');
 
     this.keys = {
@@ -227,7 +229,7 @@ class GameScene extends Phaser.Scene {
         if (this.spellSlots) {
           for (const s of this.spellSlots) { if (s.key === this.selectedSpell) s.lastCast = Date.now(); }
         }
-        this.playerSprite.setTint(0x88ccff);
+        if (this.playerSprite) this.playerSprite.setTint(0x88ccff);
         this.time.delayedCall(120, () => { if (this.playerSprite && !this.dead) this.playerSprite.clearTint(); });
         const castFlash = this.add.circle(this.playerSprite.x, this.playerSprite.y, 12, 0x88ccff, 0.3).setDepth(11);
         this.tweens.add({ targets: castFlash, scaleX: 2.5, scaleY: 2.5, alpha: 0, duration: 300, onComplete: () => castFlash.destroy() });
@@ -1143,7 +1145,7 @@ class GameScene extends Phaser.Scene {
     if (this.groundItemSprites[item.id]) return;
     const itemKey = item.k || '';
     const tier = ITEM_TIERS[itemKey] !== undefined ? ITEM_TIERS[itemKey] : 1;
-    const rarityCol = parseInt(RARITY_COLORS[tier].replace('#', ''), 16);
+    const rarityCol = parseInt((RARITY_COLORS[tier] || '#ffffff').replace('#', ''), 16);
     const isScroll = itemKey.includes('_scroll');
     const texKey = this.getItemTexture(itemKey);
 
