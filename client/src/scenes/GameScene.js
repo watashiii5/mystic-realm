@@ -867,8 +867,10 @@ class GameScene extends Phaser.Scene {
         pObj.sprite.setAlpha((pData.a !== undefined ? pData.a : pData.alive) ? 1 : 0.3);
         const otherDir = pData.d || 'down';
         const otherClass = pData.c || 'mage';
-        pObj.sprite.setTexture(otherDir === 'up' ? 'player_' + otherClass + '_back' : 'player_' + otherClass);
-        pObj.sprite.setScale(otherDir === 'left' ? -1 : 1, 1);
+        const otherFacingUp = otherDir === 'up' || otherDir === 'up-left' || otherDir === 'up-right';
+        const otherFacingLeft = otherDir === 'left' || otherDir === 'up-left' || otherDir === 'down-left';
+        pObj.sprite.setTexture(otherFacingUp ? 'player_' + otherClass + '_back' : 'player_' + otherClass);
+        pObj.sprite.setScale(otherFacingLeft ? -1 : 1, 1);
         pObj.serverMoving = pData.mv || false;
         pObj.hpBar.clear();
         const ch = pData.h !== undefined ? pData.h : pData.hp;
@@ -1540,14 +1542,13 @@ class GameScene extends Phaser.Scene {
 
     let dx = 0;
     let dy = 0;
-    let direction = this.facingDir;
 
     const pad = this.input.gamepad && this.input.gamepad.pad1;
     if (pad) {
       const ax = pad.leftStick.x;
       const ay = pad.leftStick.y;
-      if (Math.abs(ax) > 0.2) { dx = ax > 0 ? 1 : -1; direction = ax > 0 ? 'right' : 'left'; }
-      if (Math.abs(ay) > 0.2) { dy = ay > 0 ? 1 : -1; direction = ay > 0 ? 'down' : 'up'; }
+      if (Math.abs(ax) > 0.2) dx = ax > 0 ? 1 : -1;
+      if (Math.abs(ay) > 0.2) dy = ay > 0 ? 1 : -1;
       if (pad.A) this.selectSpell(0);
       if (pad.B || pad.X) { if (this.spells[1]) this.selectSpell(1); }
       if (pad.Y) this.toggleInventory();
@@ -1555,11 +1556,11 @@ class GameScene extends Phaser.Scene {
       if (pad.R1 && this.dead) this.respawn();
     }
 
-    if (this.keys.A.isDown || this.keys.LEFT.isDown || this.touch.left) { dx = -1; direction = 'left'; }
-    else if (this.keys.D.isDown || this.keys.RIGHT.isDown || this.touch.right) { dx = 1; direction = 'right'; }
+    if (this.keys.A.isDown || this.keys.LEFT.isDown || this.touch.left) dx = -1;
+    else if (this.keys.D.isDown || this.keys.RIGHT.isDown || this.touch.right) dx = 1;
 
-    if (this.keys.W.isDown || this.keys.UP.isDown || this.touch.up) { dy = -1; direction = 'up'; }
-    else if (this.keys.S.isDown || this.keys.DOWN.isDown || this.touch.down) { dy = 1; direction = 'down'; }
+    if (this.keys.W.isDown || this.keys.UP.isDown || this.touch.up) dy = -1;
+    else if (this.keys.S.isDown || this.keys.DOWN.isDown || this.touch.down) dy = 1;
 
     const moving = dx !== 0 || dy !== 0;
 
@@ -1610,16 +1611,28 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    const isMoving = Math.abs(this.moveVx) > 1 || Math.abs(this.moveVy) > 1;
-    if (isMoving) {
-      this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
+    let direction = this.facingDir;
+    if (moving) {
+      if (dx < 0 && dy < 0) direction = 'up-left';
+      else if (dx > 0 && dy < 0) direction = 'up-right';
+      else if (dx < 0 && dy > 0) direction = 'down-left';
+      else if (dx > 0 && dy > 0) direction = 'down-right';
+      else if (dx < 0) direction = 'left';
+      else if (dx > 0) direction = 'right';
+      else if (dy < 0) direction = 'up';
+      else if (dy > 0) direction = 'down';
+    }
 
-      this.walkCycle += delta * (sprinting ? 0.015 : 0.01);
-      this.walkBob = Math.sin(this.walkCycle) * 3;
-      const walkSway = Math.cos(this.walkCycle * 1.3) * 1.5;
-      this.playerSprite.y += this.walkBob;
-      this.playerSprite.x += walkSway;
-      this.playerSprite.rotation = Math.sin(this.walkCycle * 2) * 0.04;
+    const isMoving = Math.abs(this.moveVx) > 1 || Math.abs(this.moveVy) > 1;
+    const baseKey = 'player_' + this.playerClass;
+    const facingUp = direction === 'up' || direction === 'up-left' || direction === 'up-right';
+    const facingLeft = direction === 'left' || direction === 'up-left' || direction === 'down-left';
+    this.playerSprite.setTexture(baseKey + (facingUp ? '_back' : ''));
+    this.playerSprite.setScale(facingLeft ? -1 : 1, 1);
+
+    if (isMoving) {
+      this.walkCycle += delta * (sprinting ? 0.012 : 0.008);
+      this.playerSprite.y += Math.sin(this.walkCycle) * 1.5;
 
       this.walkSoundTimer -= delta;
       if (this.walkSoundTimer <= 0) {
@@ -1627,9 +1640,7 @@ class GameScene extends Phaser.Scene {
         this.walkSoundTimer = sprinting ? 300 : 450;
       }
     } else {
-      this.playerSprite.setScale(direction === 'left' ? -1 : 1, 1);
-      this.walkBob = 0;
-      this.playerSprite.rotation = 0;
+      this.walkCycle = 0;
     }
 
     if (this.isSprinting) {
@@ -1683,15 +1694,7 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    if (direction !== this.facingDir || (moving && direction !== this.facingDir)) {
-      this.facingDir = direction;
-      const baseKey = 'player_' + this.playerClass;
-      if (direction === 'up') {
-        this.playerSprite.setTexture(baseKey + '_back');
-      } else {
-        this.playerSprite.setTexture(baseKey);
-      }
-    }
+    this.facingDir = direction;
 
     if (time - this.lastMoveSent > MOVE_THROTTLE && this.network) {
       this.network.emit('move', {
