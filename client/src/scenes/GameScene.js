@@ -254,7 +254,7 @@ class GameScene extends Phaser.Scene {
       bg.fillStyle(0x333333); bg.fillRoundedRect(x, y, w, h, 6);
       bg.lineStyle(1, 0x888888); bg.strokeRoundedRect(x, y, w, h, 6);
       const t = this.add.text(x + w/2, y + h/2, label, { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5).setDepth(251);
-      const zone = this.add.zone(x + w/2, y + h/2, w, h).setInteractive().setDepth(252);
+      const zone = this.add.rectangle(x + w/2, y + h/2, w, h, 0xffffff, 0).setInteractive().setDepth(252);
       zone.on('pointerdown', () => cb(true));
       zone.on('pointerup', () => cb(false));
       zone.on('pointerout', () => cb(false));
@@ -892,7 +892,7 @@ class GameScene extends Phaser.Scene {
     const nameText = boss ? this.add.text(m.x, m.y - 20, name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(9) : null;
 
     const bSize = boss ? 40 : (key === 'treant' || key === 'golem' ? 32 : 24);
-    const clickZone = this.add.zone(m.x, m.y, bSize, bSize).setInteractive().setDepth(8);
+    const clickZone = this.add.rectangle(m.x, m.y, bSize, bSize, 0xffffff, 0).setInteractive().setDepth(8);
     const mid = m.id;
     clickZone.on('pointerdown', () => {
       this.targetMonster = mid;
@@ -1161,7 +1161,7 @@ class GameScene extends Phaser.Scene {
       this.groundItemSprites[item.id] = { sprite, zone: null, pulse: null, label: null, glow: null };
     }
 
-    const clickZone = this.add.zone(item.x, item.y, 22, 22).setInteractive().setDepth(5);
+    const clickZone = this.add.rectangle(item.x, item.y, 22, 22, 0xffffff, 0).setInteractive().setDepth(5);
     const iid = item.id;
     clickZone.on('pointerdown', () => {
       this.network.emit('pickup_item', { itemId: iid });
@@ -1778,12 +1778,12 @@ class GameScene extends Phaser.Scene {
     g.strokeRect(10, 10, 620, 460);
     this.helpElements.push(g);
 
-    const closeZone = this.add.zone(320, 240, 640, 480).setInteractive().setDepth(302);
+    const closeZone = this.add.rectangle(320, 240, 640, 480, 0xffffff, 0).setInteractive().setDepth(302);
     closeZone.on('pointerdown', () => this.toggleHelp());
     this.helpElements.push(closeZone);
 
     const closeBtn = this.add.text(580, 440, '[ CLOSE ]', { fontSize: '12px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(303);
-    const closeBtnZone = this.add.zone(580, 440, 100, 24).setInteractive().setDepth(304);
+    const closeBtnZone = this.add.rectangle(580, 440, 100, 24, 0xffffff, 0).setInteractive().setDepth(304);
     closeBtnZone.on('pointerdown', (e) => { e.stopPropagation(); this.toggleHelp(); });
     this.helpElements.push(closeBtn);
     this.helpElements.push(closeBtnZone);

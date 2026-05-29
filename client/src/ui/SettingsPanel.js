@@ -70,7 +70,7 @@ class SettingsPanel {
     const muteBtnText = s.add.text(cx - 70, cy + 94, window.soundManager.muted ? 'UNMUTE' : 'MUTE', {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(303).setAlpha(0);
-    const muteZone = s.add.zone(cx - 70, cy + 94, 100, 28).setInteractive().setDepth(304).setAlpha(0);
+    const muteZone = s.add.rectangle(cx - 70, cy + 94, 100, 28, 0xffffff, 0).setInteractive().setDepth(304).setAlpha(0);
     muteZone.on('pointerdown', () => {
       const m = window.soundManager.toggleMute();
       muteBtnText.setText(m ? 'UNMUTE' : 'MUTE');
@@ -88,7 +88,7 @@ class SettingsPanel {
     const fsBtnText = s.add.text(cx + 80, cy + 94, isFs ? 'WINDOWED' : 'FULLSCREEN', {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(303).setAlpha(0);
-    const fsZone = s.add.zone(cx + 80, cy + 94, 120, 28).setInteractive().setDepth(304).setAlpha(0);
+    const fsZone = s.add.rectangle(cx + 80, cy + 94, 120, 28, 0xffffff, 0).setInteractive().setDepth(304).setAlpha(0);
     fsZone.on('pointerdown', () => {
       if (s.sys.game.scale.isFullscreen) {
         s.sys.game.scale.stopFullscreen();
@@ -107,7 +107,7 @@ class SettingsPanel {
     const closeText = s.add.text(cx, cy + 132, 'CLOSE', {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(303).setAlpha(0);
-    const closeZone = s.add.zone(cx, cy + 132, 70, 24).setInteractive().setDepth(304).setAlpha(0);
+    const closeZone = s.add.rectangle(cx, cy + 132, 70, 24, 0xffffff, 0).setInteractive().setDepth(304).setAlpha(0);
     closeZone.on('pointerdown', () => {
       window.soundManager.playMenuSelect();
       this.hide();
@@ -135,7 +135,7 @@ class SettingsPanel {
     const knob = scene.add.circle(x + w * val, y, 7, 0xaaccff).setDepth(depth + 2).setAlpha(0);
     knob.setStrokeStyle(1, 0xffffff);
 
-    const zone = scene.add.zone(x + w / 2, y, w, 20).setInteractive().setDepth(depth + 3).setAlpha(0);
+    const zone = scene.add.rectangle(x + w / 2, y, w, 20, 0xffffff, 0).setInteractive().setDepth(depth + 3).setAlpha(0);
     zone.on('pointerdown', (p) => {
       const rel = Phaser.Math.Clamp((p.x - x) / w, 0, 1);
       this._setSlider({ bg, fill, knob, zone, x, w, onChange }, rel);

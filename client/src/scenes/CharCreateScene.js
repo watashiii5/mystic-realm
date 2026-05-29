@@ -48,7 +48,7 @@ class CharCreateScene extends Phaser.Scene {
     this.tweens.add({ targets: nameBtnBg, alpha: 0.6, duration: 400, delay: 500 });
     const nameBtnText = this.add.text(cx + 110, 80, 'SET', { fontSize: '11px', fontFamily: 'monospace', color: '#aaaaff' }).setOrigin(0.5).setDepth(11).setAlpha(0);
     this.tweens.add({ targets: nameBtnText, alpha: 1, duration: 400, delay: 500 });
-    const nameZone = this.add.zone(cx + 110, 80, 60, 20).setInteractive().setDepth(12);
+    const nameZone = this.add.rectangle(cx + 110, 80, 60, 20, 0xffffff, 0).setInteractive().setDepth(12);
     nameZone.on('pointerdown', () => {
       const n = window.prompt('Enter character name:', this.playerName || '');
       if (n) { this.playerName = n.slice(0, 16); this.nameText.setText('Name: ' + this.playerName + '_'); }
@@ -98,7 +98,7 @@ class CharCreateScene extends Phaser.Scene {
     this.tweens.add({ targets: joinBg, alpha: 1, duration: 400, delay: 800 });
     const joinText = this.add.text(cx, 396, 'JOIN', { fontSize: '18px', fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5).setDepth(11).setAlpha(0);
     this.tweens.add({ targets: joinText, alpha: 1, duration: 400, delay: 800 });
-    const joinZone = this.add.zone(cx, 396, 120, 32).setInteractive().setDepth(12);
+    const joinZone = this.add.rectangle(cx, 396, 120, 32, 0xffffff, 0).setInteractive().setDepth(12);
     joinZone.on('pointerdown', () => this.joinGame());
 
     this.arrowLeft = this.add.text(30, 175, '\u25C0', { fontSize: '28px', fontFamily: 'monospace', color: '#555577' }).setOrigin(0.5).setAlpha(0.5);

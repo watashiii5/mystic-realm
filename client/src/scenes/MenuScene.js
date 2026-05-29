@@ -126,7 +126,7 @@ class MenuScene extends Phaser.Scene {
       fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(6).setAlpha(0);
 
-    const zone = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true }).setDepth(7).setAlpha(0);
+    const zone = this.add.rectangle(x, y, w, h, 0xffffff, 0).setInteractive({ useHandCursor: true }).setDepth(7).setAlpha(0);
 
     zone.on('pointerover', () => {
       window.soundManager.playMenuHover();
@@ -186,7 +186,7 @@ class MenuScene extends Phaser.Scene {
     const closeText = this.add.text(cx, cy + 77, 'CLOSE', {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(303).setAlpha(0);
-    const closeZone = this.add.zone(cx, cy + 77, 80, 24).setInteractive().setDepth(304).setAlpha(0);
+    const closeZone = this.add.rectangle(cx, cy + 77, 80, 24, 0xffffff, 0).setInteractive().setDepth(304).setAlpha(0);
     closeZone.on('pointerdown', () => {
       window.soundManager.playMenuSelect();
       this.tweens.add({ targets: [bg, border, text, closeBg, closeText, closeZone], alpha: 0, duration: 150, onComplete: () => {
