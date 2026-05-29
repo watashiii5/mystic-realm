@@ -242,6 +242,7 @@ class GameScene extends Phaser.Scene {
     this.settingsPanel = new SettingsPanel(this);
     this.particles = new ParticleSystem(this);
     this._createNetStatus();
+    window.soundManager.setZone('meadow');
     window.soundManager.startAmbient();
     this.createVirtualControls();
   }
@@ -359,6 +360,7 @@ class GameScene extends Phaser.Scene {
 
     self.network.on('zone_changed', (data) => {
       window.soundManager.playZoneTransition();
+      window.soundManager.setZone(data.zone);
       self.cameras.main.fadeOut(200);
       self.time.delayedCall(250, () => {
         self.currentZone = data.zone;
@@ -464,6 +466,8 @@ class GameScene extends Phaser.Scene {
           if (self.particles) self.particles.burst(data.x, data.y, 4, { color: 0xffff88, spread: 20, speed: 30, size: 2, life: 300 });
           const impact = self.add.circle(data.x, data.y, 3, 0xffffff, 0.6).setDepth(12);
           self.tweens.add({ targets: impact, scaleX: 3, scaleY: 3, alpha: 0, duration: 300, onComplete: () => impact.destroy() });
+          if (data.a >= 20) self.cameras.main.shake(100, 0.006);
+          if (data.a >= 40) self.cameras.main.shake(150, 0.01);
         }
       } else if (data.t === 'heal') {
         self.showDamageNumber(data.x, data.y, '+' + data.a, '#44ff44');
@@ -910,7 +914,7 @@ class GameScene extends Phaser.Scene {
       this.showTargetRing(m.x, m.y);
     });
 
-    this.monsterSprites[m.id] = { sprite: g, hpBar, nameText, clickZone, boss, maxHp };
+    this.monsterSprites[m.id] = { sprite: g, hpBar, nameText, clickZone, boss, maxHp, _prevHp: hp, _statusGfx: null, _statusTypes: [] };
     this.updateMonsterHP(m.id, hp, maxHp);
 
     g.setAlpha(0);
@@ -1039,6 +1043,36 @@ class GameScene extends Phaser.Scene {
           if (ms.nameText) ms.nameText.setAlpha(0);
           continue;
         }
+
+        if (ms._prevHp !== undefined && hp < ms._prevHp) {
+          ms.sprite.setTint(0xffffff);
+          this.time.delayedCall(80, () => { if (ms && ms.sprite && ms.sprite.active) ms.sprite.clearTint(); });
+          if (ms._prevHp - hp > 15) {
+            this.cameras.main.shake(80, 0.004);
+          }
+        }
+        ms._prevHp = hp;
+
+        const statusTypes = m.se || [];
+        if (statusTypes.length > 0 && ms._statusGfx) {
+          const sx = m.x, sy = m.y;
+          ms._statusGfx.clear();
+          ms._statusGfx.setPosition(sx, sy);
+          const statusColors = { burn: 0xff6600, slow: 0xaa44ff, freeze: 0x44ccff, poison: 0x44ff44 };
+          for (let si = 0; si < statusTypes.length; si++) {
+            const col = statusColors[statusTypes[si].t] || 0xffffff;
+            const offset = si * 3;
+            ms._statusGfx.lineStyle(1.5, col, 0.8);
+            ms._statusGfx.strokeCircle(0, 0, 12 + offset);
+          }
+          ms._statusGfx.setAlpha(0.5 + Math.sin(Date.now() * 0.005) * 0.3);
+        } else if (statusTypes.length > 0 && !ms._statusGfx) {
+          ms._statusGfx = this.add.graphics().setDepth(7);
+        } else if (statusTypes.length === 0 && ms._statusGfx) {
+          ms._statusGfx.destroy();
+          ms._statusGfx = null;
+        }
+
         this.updateMonsterHP(m.id, hp, maxHp);
         if (this.targetMonster === m.id) {
           const pct = Math.floor((hp / maxHp) * 100);
@@ -1048,10 +1082,12 @@ class GameScene extends Phaser.Scene {
     }
     for (const id in this.monsterSprites) {
       if (!aliveIds.has(parseInt(id))) {
-        this.monsterSprites[id].sprite.destroy();
-        this.monsterSprites[id].hpBar.destroy();
-        if (this.monsterSprites[id].nameText) this.monsterSprites[id].nameText.destroy();
-        if (this.monsterSprites[id].clickZone) this.monsterSprites[id].clickZone.destroy();
+        const ms = this.monsterSprites[id];
+        ms.sprite.destroy();
+        ms.hpBar.destroy();
+        if (ms.nameText) ms.nameText.destroy();
+        if (ms.clickZone) ms.clickZone.destroy();
+        if (ms._statusGfx) ms._statusGfx.destroy();
         delete this.monsterSprites[id];
       }
     }
@@ -1078,10 +1114,12 @@ class GameScene extends Phaser.Scene {
 
   clearMonsters() {
     for (const id in this.monsterSprites) {
-      this.monsterSprites[id].sprite.destroy();
-      this.monsterSprites[id].hpBar.destroy();
-      if (this.monsterSprites[id].nameText) this.monsterSprites[id].nameText.destroy();
-      if (this.monsterSprites[id].clickZone) this.monsterSprites[id].clickZone.destroy();
+      const ms = this.monsterSprites[id];
+      ms.sprite.destroy();
+      ms.hpBar.destroy();
+      if (ms.nameText) ms.nameText.destroy();
+      if (ms.clickZone) ms.clickZone.destroy();
+      if (ms._statusGfx) ms._statusGfx.destroy();
     }
     this.monsterSprites = {};
     this.targetMonster = null;

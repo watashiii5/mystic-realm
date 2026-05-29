@@ -246,6 +246,18 @@ function monsterAI(zone, monsters, players, now) {
     const m = monsters[mi];
     if (!m.alive) continue;
 
+    const now2 = Date.now();
+    let speedMult = 1;
+    let canAct = true;
+    if (m.statusEffects) {
+      for (let si = m.statusEffects.length - 1; si >= 0; si--) {
+        const se = m.statusEffects[si];
+        if (now2 - se.start > se.dur) { m.statusEffects.splice(si, 1); continue; }
+        if (se.t === 'freeze') { speedMult = 0; canAct = false; }
+        if (se.t === 'slow') speedMult = Math.min(speedMult, 0.5);
+      }
+    }
+
     let best = 0, bestDsq = 1e9;
     for (let pi = 0; pi < pCount; pi++) {
       const dsq = distSq(m.x, m.y, players[pi].x, players[pi].y);
@@ -264,7 +276,7 @@ function monsterAI(zone, monsters, players, now) {
         m._wander += (Math.random() - 0.5) * 2;
         m._wanderT = 1000 + (Math.random() * 2000 | 0);
       }
-      const spd = m.speed * 0.006;
+      const spd = m.speed * 0.006 * speedMult;
       const oldX = m.x, oldY = m.y;
       m.x += Math.cos(m._wander) * spd;
       m.y += Math.sin(m._wander) * spd;
@@ -279,17 +291,18 @@ function monsterAI(zone, monsters, players, now) {
 
     const dist = Math.sqrt(bestDsq);
     m.target = closest.id;
-    if (dist > 24) {
+    if (dist > 24 && speedMult > 0) {
       const dx = (closest.x - m.x) / dist;
       const dy = (closest.y - m.y) / dist;
       const oldX = m.x, oldY = m.y;
-      m.x += dx * m.speed * 0.018;
-      m.y += dy * m.speed * 0.018;
+      m.x += dx * m.speed * 0.018 * speedMult;
+      m.y += dy * m.speed * 0.018 * speedMult;
       const ctX = (m.x / TILE_SIZE) | 0;
       const ctY = (m.y / TILE_SIZE) | 0;
       if (!isWalkable(zone, ctX, ctY)) { m.x = oldX; m.y = oldY; }
     }
 
+    if (!canAct) continue;
     const pid = closest.id;
     atkCount[pid] = (atkCount[pid] || 0) + 1;
     if (atkCount[pid] > 3 && dist < 100 && now - m.lastAttack > ATTACK_COOLDOWN) continue;
@@ -365,6 +378,24 @@ function checkProjectiles(zone, monsters, players) {
         if (distSq(m.x, m.y, p.x, p.y) < 400) {
           const dmg = p.dmg - m.def > 0 ? (p.dmg | 0) - m.def : 1;
           m.hp -= dmg;
+          const spell = SPELLS[p.spellKey];
+          if (spell && (spell.burn || spell.slow || spell.freeze || spell.poison)) {
+            if (!m.statusEffects) m.statusEffects = [];
+            if (spell.burn && !m.statusEffects.some(s => s.t === 'burn')) {
+              m.statusEffects.push({ t: 'burn', start: Date.now(), dur: spell.burn * 1000, tick: 1000, dmg: Math.max(1, Math.floor(dmg * 0.2)) });
+            }
+            if (spell.slow) {
+              const se = m.statusEffects.find(s => s.t === 'slow');
+              if (se) se.start = Date.now(); else m.statusEffects.push({ t: 'slow', start: Date.now(), dur: spell.slow * 1000 });
+            }
+            if (spell.freeze) {
+              const se = m.statusEffects.find(s => s.t === 'freeze');
+              if (se) se.start = Date.now(); else m.statusEffects.push({ t: 'freeze', start: Date.now(), dur: spell.freeze * 1000 });
+            }
+            if (spell.poison && !m.statusEffects.some(s => s.t === 'poison')) {
+              m.statusEffects.push({ t: 'poison', start: Date.now(), dur: spell.poison * 1000, tick: 1000, dmg: Math.max(1, Math.floor(dmg * 0.12)) });
+            }
+          }
           const zoneRoom = 'zone_' + zone;
           io.to(zoneRoom).emit('combat_event', { t: 'damage', ty: 'monster', ti: m.id, a: dmg, x: m.x, y: m.y });
           if (m.hp <= 0) {
@@ -416,7 +447,7 @@ function checkProjectiles(zone, monsters, players) {
 }
 
 const plSer = p => ({ id: p.id, n: p.name, c: p.class, x: p.x, y: p.y, h: p.hp, mh: p.maxHp, m: p.mp, mm: p.maxMp, l: p.level, a: p.alive, d: p.direction, mv: p.moving, xp: p.xp });
-const monSer = m => ({ id: m.id, k: m.key, n: m.name, x: m.x, y: m.y, h: m.hp, mh: m.maxHp, c: m.color, a: m.alive, b: m.boss || false });
+const monSer = m => ({ id: m.id, k: m.key, n: m.name, x: m.x, y: m.y, h: m.hp, mh: m.maxHp, c: m.color, a: m.alive, b: m.boss || false, se: m.statusEffects ? m.statusEffects.map(s => ({ t: s.t })) : [] });
 const projSer = p => ({ id: p.id, x: p.x, y: p.y, c: p.color, sk: p.spellKey });
 
 function penalizeDeath(player) {
@@ -471,6 +502,29 @@ function gameLoop() {
           pl.poisonDmg = 0;
           if (pl.hp < pl.maxHp) pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.005);
           if (pl.mp < pl.maxMp) pl.mp = Math.min(pl.maxMp, pl.mp + pl.maxMp * 0.003);
+        }
+      }
+    }
+
+    for (let mi = 0; mi < monsters.length; mi++) {
+      const m = monsters[mi];
+      if (!m.alive) continue;
+      if (m.statusEffects && m.statusEffects.length > 0) {
+        for (let si = m.statusEffects.length - 1; si >= 0; si--) {
+          const se = m.statusEffects[si];
+          if (now - se.start > se.dur) { m.statusEffects.splice(si, 1); continue; }
+          if ((se.t === 'burn' || se.t === 'poison') && se.tick) {
+            if (!se._lastTick) se._lastTick = se.start;
+            if (now - se._lastTick >= se.tick) {
+              se._lastTick = now;
+              m.hp -= se.dmg;
+              io.to('zone_' + zone).emit('combat_event', { t: 'damage', ty: 'monster', ti: m.id, a: se.dmg, x: m.x, y: m.y });
+              if (m.hp <= 0) {
+                m.hp = 0; m.alive = false; m.deathTime = Date.now();
+                io.to('zone_' + zone).emit('monster_died', { mid: m.id, pid: 0, x: m.x, y: m.y, xp: 0, lv: false, nl: 0, xpe: 0, mk: 0, boss: !!m.boss });
+              }
+            }
+          }
         }
       }
     }
@@ -685,6 +739,23 @@ io.on('connection', (socket) => {
         if (!m.alive || distSq(m.x, m.y, player.x, player.y) > radSq) continue;
         const dmg = spell.dmg - m.def > 0 ? (spell.dmg | 0) - m.def : 1;
         m.hp -= dmg;
+        if (spell.burn || spell.slow || spell.freeze || spell.poison) {
+          if (!m.statusEffects) m.statusEffects = [];
+          if (spell.burn && !m.statusEffects.some(s => s.t === 'burn')) {
+            m.statusEffects.push({ t: 'burn', start: Date.now(), dur: spell.burn * 1000, tick: 1000, dmg: Math.max(1, Math.floor(dmg * 0.2)) });
+          }
+          if (spell.slow) {
+            const se = m.statusEffects.find(s => s.t === 'slow');
+            if (se) se.start = Date.now(); else m.statusEffects.push({ t: 'slow', start: Date.now(), dur: spell.slow * 1000 });
+          }
+          if (spell.freeze) {
+            const se = m.statusEffects.find(s => s.t === 'freeze');
+            if (se) se.start = Date.now(); else m.statusEffects.push({ t: 'freeze', start: Date.now(), dur: spell.freeze * 1000 });
+          }
+          if (spell.poison && !m.statusEffects.some(s => s.t === 'poison')) {
+            m.statusEffects.push({ t: 'poison', start: Date.now(), dur: spell.poison * 1000, tick: 1000, dmg: Math.max(1, Math.floor(dmg * 0.12)) });
+          }
+        }
         io.to('zone_' + currentZone).emit('combat_event', { t: 'damage', ty: 'monster', ti: m.id, a: dmg, x: m.x, y: m.y });
         if (m.hp <= 0) {
           m.hp = 0; m.alive = false; m.deathTime = Date.now();

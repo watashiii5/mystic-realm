@@ -7,6 +7,7 @@ class SoundManager {
     this.muted = false;
     this._ambientNodes = null;
     this._ambientPlaying = false;
+    this._currentZone = 'meadow';
     this._init();
   }
 
@@ -472,6 +473,14 @@ class SoundManager {
     }
   }
 
+  setZone(zone) {
+    this._currentZone = zone || 'meadow';
+    if (this._ambientPlaying) {
+      this.stopAmbient();
+      this.startAmbient();
+    }
+  }
+
   _updateAmbient() {
     if (!this._ambientPlaying || !this.ctx) return;
     const now = this.ctx.currentTime;
@@ -481,53 +490,98 @@ class SoundManager {
 
     const nodes = [];
 
+    const z = this._currentZone || 'meadow';
+
+    let baseFreq1 = 55, baseFreq2 = 65, filterFreq = 300, noiseFreq = 200, noiseQ = 0.5, noiseVol = 0.15, oscVol1 = 0.5, oscVol2 = 0.3, oscType1 = 'sine', oscType2 = 'sine';
+    let addNoise = true, addHarmonic = false;
+
+    switch (z) {
+      case 'forest':
+        baseFreq1 = 70; baseFreq2 = 82; filterFreq = 400; noiseFreq = 500; noiseQ = 1; noiseVol = 0.1;
+        oscVol1 = 0.35; oscVol2 = 0.25; addHarmonic = true;
+        break;
+      case 'caves':
+        baseFreq1 = 40; baseFreq2 = 48; filterFreq = 200; noiseFreq = 100; noiseQ = 0.3; noiseVol = 0.25;
+        oscVol1 = 0.5; oscVol2 = 0.3; oscType1 = 'triangle'; oscType2 = 'triangle';
+        break;
+      case 'ruins':
+        baseFreq1 = 30; baseFreq2 = 36; filterFreq = 150; noiseFreq = 120; noiseQ = 2; noiseVol = 0.2;
+        oscVol1 = 0.4; oscVol2 = 0.25; oscType1 = 'sawtooth'; oscType2 = 'sawtooth';
+        break;
+      case 'tower':
+        baseFreq1 = 25; baseFreq2 = 30; filterFreq = 100; noiseFreq = 60; noiseQ = 3; noiseVol = 0.35;
+        oscVol1 = 0.5; oscVol2 = 0.3; oscType1 = 'square'; oscType2 = 'sawtooth';
+        break;
+      default:
+        break;
+    }
+
     const o1 = this.ctx.createOscillator();
-    o1.type = 'sine';
-    o1.frequency.setValueAtTime(55 + Math.random() * 8, now);
-    o1.frequency.linearRampToValueAtTime(55 + Math.random() * 8, now + dur);
+    o1.type = oscType1;
+    o1.frequency.setValueAtTime(baseFreq1 + Math.random() * 8, now);
+    o1.frequency.linearRampToValueAtTime(baseFreq1 + Math.random() * 8, now + dur);
     const g1 = this.ctx.createGain();
     g1.gain.setValueAtTime(0, now);
-    g1.gain.linearRampToValueAtTime(0.5, now + 1.5);
-    g1.gain.setValueAtTime(0.5, now + dur - 2);
+    g1.gain.linearRampToValueAtTime(oscVol1, now + 1.5);
+    g1.gain.setValueAtTime(oscVol1, now + dur - 2);
     g1.gain.linearRampToValueAtTime(0, now + dur);
     const f1 = this.ctx.createBiquadFilter();
-    f1.type = 'lowpass'; f1.frequency.value = 300;
+    f1.type = 'lowpass'; f1.frequency.value = filterFreq;
     o1.connect(f1); f1.connect(g1); g1.connect(gain);
     o1.start(now); o1.stop(now + dur);
     nodes.push(o1);
 
     const o2 = this.ctx.createOscillator();
-    o2.type = 'sine';
-    o2.frequency.setValueAtTime(65 + Math.random() * 10, now);
-    o2.frequency.linearRampToValueAtTime(65 + Math.random() * 10, now + dur);
+    o2.type = oscType2;
+    o2.frequency.setValueAtTime(baseFreq2 + Math.random() * 10, now);
+    o2.frequency.linearRampToValueAtTime(baseFreq2 + Math.random() * 10, now + dur);
     const g2 = this.ctx.createGain();
     g2.gain.setValueAtTime(0, now);
-    g2.gain.linearRampToValueAtTime(0.3, now + 2);
-    g2.gain.setValueAtTime(0.3, now + dur - 2.5);
+    g2.gain.linearRampToValueAtTime(oscVol2, now + 2);
+    g2.gain.setValueAtTime(oscVol2, now + dur - 2.5);
     g2.gain.linearRampToValueAtTime(0, now + dur);
     const f2 = this.ctx.createBiquadFilter();
-    f2.type = 'lowpass'; f2.frequency.value = 250;
+    f2.type = 'lowpass'; f2.frequency.value = filterFreq - 50;
     o2.connect(f2); f2.connect(g2); g2.connect(gain);
     o2.start(now); o2.stop(now + dur);
     nodes.push(o2);
 
-    const bufSize = Math.ceil(this.ctx.sampleRate * dur);
-    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1) * 0.3;
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-    const g3 = this.ctx.createGain();
-    g3.gain.setValueAtTime(0, now);
-    g3.gain.linearRampToValueAtTime(0.15, now + 3);
-    g3.gain.setValueAtTime(0.15, now + dur - 3);
-    g3.gain.linearRampToValueAtTime(0, now + dur);
-    const f3 = this.ctx.createBiquadFilter();
-    f3.type = 'bandpass'; f3.frequency.value = 200; f3.Q.value = 0.5;
-    src.connect(f3); f3.connect(g3); g3.connect(gain);
-    src.start(now); src.stop(now + dur);
-    nodes.push(src);
+    if (addHarmonic) {
+      const o3 = this.ctx.createOscillator();
+      o3.type = 'sine';
+      o3.frequency.setValueAtTime(baseFreq1 * 3 + Math.random() * 5, now);
+      o3.frequency.linearRampToValueAtTime(baseFreq1 * 3 + Math.random() * 5, now + dur);
+      const g3 = this.ctx.createGain();
+      g3.gain.setValueAtTime(0, now);
+      g3.gain.linearRampToValueAtTime(0.12, now + 2);
+      g3.gain.setValueAtTime(0.12, now + dur - 2.5);
+      g3.gain.linearRampToValueAtTime(0, now + dur);
+      const f3 = this.ctx.createBiquadFilter();
+      f3.type = 'lowpass'; f3.frequency.value = filterFreq * 2;
+      o3.connect(f3); f3.connect(g3); g3.connect(gain);
+      o3.start(now); o3.stop(now + dur);
+      nodes.push(o3);
+    }
+
+    if (addNoise) {
+      const bufSize = Math.ceil(this.ctx.sampleRate * dur);
+      const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1) * 0.3;
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const g4 = this.ctx.createGain();
+      g4.gain.setValueAtTime(0, now);
+      g4.gain.linearRampToValueAtTime(noiseVol, now + 3);
+      g4.gain.setValueAtTime(noiseVol, now + dur - 3);
+      g4.gain.linearRampToValueAtTime(0, now + dur);
+      const f4 = this.ctx.createBiquadFilter();
+      f4.type = 'bandpass'; f4.frequency.value = noiseFreq; f4.Q.value = noiseQ;
+      src.connect(f4); f4.connect(g4); g4.connect(gain);
+      src.start(now); src.stop(now + dur);
+      nodes.push(src);
+    }
 
     this._ambientNodes = nodes;
     gain.connect(this.ctx.destination);
