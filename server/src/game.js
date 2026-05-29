@@ -73,6 +73,8 @@ const MONSTERS = {
   golem: { name: 'Golem', desc: 'A guardian made of stone.', hp: 80, atk: 8, def: 10, xp: 40, speed: 15, aggro: 100, color: 0x888866 },
   phantom: { name: 'Phantom', desc: 'A ghostly apparition.', hp: 35, atk: 10, def: 2, xp: 45, speed: 40, aggro: 140, color: 0xccccff, teleport: true },
   wraith: { name: 'Wraith', desc: 'A soul-draining undead horror.', hp: 45, atk: 10, def: 3, xp: 42, speed: 35, aggro: 130, color: 0x664488, lifedrain: 5 },
+  mage: { name: 'Dark Mage', desc: 'A corrupted mage wielding void magic.', hp: 50, atk: 12, def: 3, xp: 50, speed: 30, aggro: 130, color: 0x8844cc, ranged: true },
+  elemental: { name: 'Arcane Elemental', desc: 'A being of pure arcane energy.', hp: 55, atk: 10, def: 6, xp: 55, speed: 25, aggro: 120, color: 0x44aaff, ranged: true, teleport: true },
   boss: { name: 'Aether Lord', desc: 'THE FINAL BOSS.', hp: 250, atk: 15, def: 8, xp: 200, speed: 25, aggro: 200, color: 0xffcc00, boss: true, ranged: true, teleport: true },
 };
 

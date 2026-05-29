@@ -611,13 +611,10 @@ class GameScene extends Phaser.Scene {
     }
 
     this.equipmentOverlay = this.add.graphics().setDepth(11);
-    const weapons = ['weapon_staff_basic', 'weapon_staff_fire', 'weapon_staff_frost', 'weapon_staff_arcane', 'weapon_staff_aether'];
-    const armors = ['armor_robe_linen', 'armor_robe_wool', 'armor_robe_silk', 'armor_robe_enchanted', 'armor_robe_aether'];
-    const accs = ['ring_copper', 'ring_silver', 'ring_gold', 'ring_crystal', 'ring_aether'];
 
     const overlayColors = { 1: 0xffffff, 2: 0x44ff44, 3: 0x44ccff, 4: 0xcc44ff, 5: 0xff8800 };
 
-    if (this.equipped.weapon && weapons.includes(this.equipped.weapon)) {
+    if (this.equipped.weapon) {
       const wTier = ITEM_TIERS[this.equipped.weapon] || 1;
       const wCol = overlayColors[wTier] || 0xffffff;
       this.equipmentOverlay.lineStyle(2, wCol, 0.7);
@@ -629,14 +626,14 @@ class GameScene extends Phaser.Scene {
       this.equipmentOverlay.fillCircle(18, -20, 2);
     }
 
-    if (this.equipped.armor && armors.includes(this.equipped.armor)) {
+    if (this.equipped.armor) {
       const aTier = ITEM_TIERS[this.equipped.armor] || 1;
       const aCol = overlayColors[aTier] || 0xffffff;
       this.equipmentOverlay.fillStyle(aCol, 0.15);
       this.equipmentOverlay.fillRect(-8, -5, 16, 16);
     }
 
-    if (this.equipped.accessory && accs.includes(this.equipped.accessory)) {
+    if (this.equipped.accessory) {
       const rTier = ITEM_TIERS[this.equipped.accessory] || 1;
       const rCol = overlayColors[rTier] || 0xffffff;
       this.equipmentOverlay.fillStyle(rCol, 0.5);
@@ -999,6 +996,19 @@ class GameScene extends Phaser.Scene {
         g.fillStyle(0xff0000, 0.5); g.fillCircle(-3, -1, 0.8); g.fillCircle(3, -1, 0.8);
         g.fillStyle(color, 0.3); g.fillTriangle(-8, 6, 8, 6, 0, 12);
         break;
+      case 'mage':
+        g.fillStyle(color); g.fillRect(-4, -4, 8, 12);
+        g.fillStyle(color); g.fillCircle(0, -6, 6);
+        g.fillStyle(0x000000); g.fillCircle(-2, -7, 1); g.fillCircle(2, -7, 1);
+        g.fillStyle(0xcc88ff, 0.6); g.fillCircle(0, -6, 8);
+        break;
+      case 'elemental':
+        g.fillStyle(color, 0.7); g.fillCircle(0, 0, 10);
+        g.fillStyle(color, 0.4); g.fillCircle(0, 0, 6);
+        g.fillStyle(0xffffff, 0.5); g.fillCircle(-2, -2, 3); g.fillCircle(2, 2, 2);
+        g.lineStyle(1, color, 0.5); g.lineBetween(-10, 0, 10, 0);
+        g.lineBetween(0, -10, 0, 10);
+        break;
       default:
         g.fillStyle(color); g.fillCircle(0, 0, 8);
         g.fillStyle(0x000000); g.fillCircle(-2, -1, 1.5); g.fillCircle(2, -1, 1.5);
@@ -1163,8 +1173,9 @@ class GameScene extends Phaser.Scene {
     const texKey = this.getItemTexture(itemKey);
 
     const sprite = this.add.image(0, 0, texKey).setDepth(5).setPosition(item.x, item.y);
+    let glow = null;
     if (tier > 0) {
-      const glow = this.add.graphics().setDepth(4);
+      glow = this.add.graphics().setDepth(4);
       glow.fillStyle(rarityCol, 0.12);
       glow.fillCircle(item.x, item.y, 14);
       glow.lineStyle(1, rarityCol, 0.35);
@@ -1187,6 +1198,9 @@ class GameScene extends Phaser.Scene {
     this.groundItemSprites[item.id].zone = clickZone;
     this.groundItemSprites[item.id].label = label;
 
+    sprite.setScale(0);
+    this.tweens.add({ targets: sprite, scaleX: 1, scaleY: 1, duration: 250, ease: 'Back.easeOut' });
+    if (glow) { glow.setAlpha(0); this.tweens.add({ targets: glow, alpha: 1, duration: 300 }); }
     const flash = this.add.circle(item.x, item.y, 4, rarityCol, 0.5).setDepth(6);
     this.tweens.add({ targets: flash, scaleX: 4, scaleY: 4, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
 

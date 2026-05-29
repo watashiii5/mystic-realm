@@ -537,6 +537,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join', (data) => {
+    if (!data.name || typeof data.name !== 'string' || data.name.length < 1 || data.name.length > 16) {
+      socket.emit('error_message', 'Invalid name (1-16 characters)');
+      return;
+    }
     const saved = loadAll()[data.name];
     player = createPlayer(id, data);
     gameState.players[id] = player;

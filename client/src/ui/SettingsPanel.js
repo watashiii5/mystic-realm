@@ -3,6 +3,7 @@ class SettingsPanel {
     this.scene = scene;
     this.visible = false;
     this.elements = [];
+    this._loadSettings();
     this._build();
   }
 
@@ -156,6 +157,33 @@ class SettingsPanel {
     slider.fill.fillRoundedRect(slider.x, slider.y - 4, slider.w * val, 8, 4);
     slider.knob.x = slider.x + slider.w * val;
     slider.onChange(val);
+    this._saveSettings();
+  }
+
+  _saveSettings() {
+    try {
+      const sm = window.soundManager;
+      const data = {
+        masterVolume: sm.masterGain?.gain?.value ?? 0.5,
+        sfxVolume: sm.sfxGain?.gain?.value ?? 0.5,
+        musicVolume: sm.musicGain?.gain?.value ?? 0.3,
+        muted: sm.muted || false,
+      };
+      localStorage.setItem('mysticRealm_settings', JSON.stringify(data));
+    } catch (e) { /* localStorage may be unavailable */ }
+  }
+
+  _loadSettings() {
+    try {
+      const raw = localStorage.getItem('mysticRealm_settings');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      const sm = window.soundManager;
+      if (data.masterVolume !== undefined) sm.setMasterVolume(data.masterVolume);
+      if (data.sfxVolume !== undefined) sm.setSfxVolume(data.sfxVolume);
+      if (data.musicVolume !== undefined) sm.setMusicVolume(data.musicVolume);
+      if (data.muted) sm.toggleMute();
+    } catch (e) { /* ignore */ }
   }
 
   show() {
