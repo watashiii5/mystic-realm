@@ -45,8 +45,9 @@ class SettingsPanel {
       }).setOrigin(1, 0.5).setDepth(302).setAlpha(0);
       pcts.push(pct);
 
+      const volKey = r.vol;
       const slider = this._createSlider(s, cx - 75, yy, 150, sm['getVolumePercent'](r.vol) / 100, (v) => {
-        sm['set' + r.label.charAt(0).toUpperCase() + r.label.slice(1) + 'Volume'](v);
+        sm['set' + volKey.charAt(0).toUpperCase() + volKey.slice(1) + 'Volume'](v);
         pct.setText(sm.getVolumePercent(r.vol) + '%');
       }, 302);
 
