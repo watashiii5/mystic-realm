@@ -1,0 +1,15 @@
+const SPELLS = {
+  magic_bolt: { name: 'Magic Bolt', cost: 5, dmg: 10, speed: 300, color: 0x88ccff, radius: 4, aoe: false },
+  heal: { name: 'Heal', cost: 15, dmg: -30, speed: 0, color: 0x44ff44, radius: 0, aoe: false },
+  fireball: { name: 'Fireball', cost: 12, dmg: 25, speed: 250, color: 0xff4400, radius: 5, aoe: false, burn: 5 },
+  ice_shard: { name: 'Ice Shard', cost: 10, dmg: 18, speed: 280, color: 0x44ccff, radius: 4, aoe: false, slow: 3 },
+  stone_wall: { name: 'Stone Wall', cost: 20, dmg: 0, speed: 0, color: 0x886644, radius: 0, aoe: false, wall: true },
+  gale: { name: 'Gale', cost: 8, dmg: 8, speed: 350, color: 0xccffcc, radius: 6, aoe: false, knockback: 60 },
+  flame_wave: { name: 'Flame Wave', cost: 18, dmg: 20, speed: 200, color: 0xff6600, radius: 8, aoe: true },
+  summon_wolf: { name: 'Summon Wolf', cost: 25, dmg: 12, speed: 0, color: 0xcc8844, radius: 0, aoe: false, summon: 'wolf' },
+  teleport: { name: 'Teleport', cost: 20, dmg: 0, speed: 0, color: 0xcc44ff, radius: 0, aoe: false, blink: 80 },
+  meteor: { name: 'Meteor', cost: 30, dmg: 40, speed: 150, color: 0xff4400, radius: 12, aoe: true },
+  frost_nova: { name: 'Frost Nova', cost: 22, dmg: 15, speed: 0, color: 0x88ddff, radius: 50, aoe: true, freeze: 2 },
+  poison_cloud: { name: 'Poison Cloud', cost: 15, dmg: 12, speed: 0, color: 0x66ff66, radius: 40, aoe: true, poison: 6 },
+  slash: { name: 'Slash', cost: 0, dmg: 12, speed: 0, color: 0xcccccc, radius: 30, aoe: false, melee: true },
+};

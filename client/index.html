@@ -6,8 +6,8 @@
   <title>Mystic Realm</title>
     <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-    canvas { display: block; margin: 0 auto; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: manipulation; -webkit-overflow-scrolling: none; }
+    canvas { display: block; margin: 0 auto; touch-action: none; }
     #loading { color: #ffcc00; font-family: monospace; font-size: 18px;
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       text-align: center; }
@@ -31,14 +31,23 @@
       el.textContent = 'PROMISE ERROR: ' + e.reason;
       el.style.display = 'block';
     });
+    document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+    document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.86.0/phaser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.3/dist/socket.io.min.js"></script>
+  <script src="/src/data/ItemData.js"></script>
+  <script src="/src/data/SpellData.js"></script>
   <script src="/src/network/Network.js"></script>
   <script src="/src/audio/SoundManager.js"></script>
   <script src="/src/ui/SettingsPanel.js"></script>
+  <script src="/src/ui/HelpPanel.js"></script>
+  <script src="/src/ui/InventoryPanel.js"></script>
+  <script src="/src/ui/ChatBox.js"></script>
   <script src="/src/ui/Minimap.js"></script>
   <script src="/src/ui/ParticleSystem.js"></script>
+  <script src="/src/ui/TargetPreview.js"></script>
+  <script src="/src/ui/HUD.js"></script>
   <script src="/src/scenes/BootScene.js"></script>
   <script src="/src/scenes/MenuScene.js"></script>
   <script src="/src/scenes/CharCreateScene.js"></script>

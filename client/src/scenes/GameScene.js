@@ -4,59 +4,12 @@ const ROWS = 15;
 const SPEED = 160;
 const MOVE_THROTTLE = 50;
 const TILE_TEXTURES = ['tile_0', 'tile_1', 'tile_2', 'tile_3', 'tile_4', 'tile_5', 'tile_6', 'tile_7', 'tile_8', 'tile_9', 'tile_10', 'tile_11', 'tile_12'];
-
-const ITEM_NAMES = {
-  wooden_staff: 'Wooden Staff', starter_robe: 'Starter Robe', starter_ring: 'Starter Ring',
-  forest_staff: 'Forest Staff', leaf_cloak: 'Leaf Cloak', vine_ring: 'Vine Ring',
-  crystal_staff: 'Crystal Staff', crystal_robe: 'Crystal Robe', crystal_ring: 'Crystal Ring',
-  ancient_staff: 'Ancient Staff', ancient_robe: 'Ancient Robe', soul_ring: 'Soul Ring',
-  legendary_staff: 'Legendary Staff', legendary_robe: 'Legendary Robe', boss_ring: 'Aether Ring',
-  health_pot: 'Health Potion', mana_pot: 'Mana Potion',
-  greater_health_pot: 'Greater Health Potion', greater_mana_pot: 'Greater Mana Potion',
-};
-
-const ITEM_TIERS = {
-  health_pot: 0, mana_pot: 0, greater_health_pot: 1, greater_mana_pot: 1,
-  wooden_staff: 1, starter_robe: 1, starter_ring: 1,
-  forest_staff: 2, leaf_cloak: 2, vine_ring: 2,
-  crystal_staff: 3, crystal_robe: 3, crystal_ring: 3,
-  ancient_staff: 4, ancient_robe: 4, soul_ring: 4,
-  legendary_staff: 5, legendary_robe: 5, boss_ring: 5,
-};
-const ITEM_TYPES = {
-  wooden_staff: 'weapon', starter_robe: 'armor', starter_ring: 'accessory',
-  forest_staff: 'weapon', leaf_cloak: 'armor', vine_ring: 'accessory',
-  crystal_staff: 'weapon', crystal_robe: 'armor', crystal_ring: 'accessory',
-  ancient_staff: 'weapon', ancient_robe: 'armor', soul_ring: 'accessory',
-  legendary_staff: 'weapon', legendary_robe: 'armor', boss_ring: 'accessory',
-  health_pot: 'consumable', mana_pot: 'consumable',
-  greater_health_pot: 'consumable', greater_mana_pot: 'consumable',
-};
-const RARITY_COLORS = { 0: '#aaaaaa', 1: '#ffffff', 2: '#44ff44', 3: '#44ccff', 4: '#cc44ff', 5: '#ff8800' };
-const RARITY_NAMES = { 0: 'Common', 1: 'Common', 2: 'Uncommon', 3: 'Rare', 4: 'Epic', 5: 'Legendary' };
-const ITEM_DESCS = {
-  wooden_staff: 'A basic wooden staff', starter_robe: 'Simple cloth robe', starter_ring: 'A simple copper ring',
-  forest_staff: 'Carved from living wood', leaf_cloak: 'Woven from enchanted leaves', vine_ring: 'Living vines coiled into a ring',
-  crystal_staff: 'Pulsing with crystal energy', crystal_robe: 'Robes lined with crystal shards', crystal_ring: 'A ring of pure crystal',
-  ancient_staff: 'Wielded by forgotten mages', ancient_robe: 'Etched with ancient runes', soul_ring: 'Pulses with a faint heartbeat',
-  legendary_staff: 'Staff of a true archmage', legendary_robe: 'Robes woven from starlight', boss_ring: "The Aether Lord's own ring",
-  health_pot: 'Restores 40 HP', mana_pot: 'Restores 30 MP', greater_health_pot: 'Restores 80 HP', greater_mana_pot: 'Restores 60 MP',
-};
-const ITEM_STATS = {
-  wooden_staff: { atk: 3 }, starter_robe: { def: 2 }, starter_ring: { mp: 10 },
-  forest_staff: { atk: 6, mp: 5 }, leaf_cloak: { def: 4, hp: 10 }, vine_ring: { hp: 15 },
-  crystal_staff: { atk: 10, mp: 10 }, crystal_robe: { def: 7, mp: 15 }, crystal_ring: { mp: 25 },
-  ancient_staff: { atk: 15, mp: 15 }, ancient_robe: { def: 10, mp: 20 }, soul_ring: { hp: 25, mp: 15 },
-  legendary_staff: { atk: 22, mp: 25 }, legendary_robe: { def: 15, hp: 30 }, boss_ring: { hp: 40, mp: 30, atk: 5 },
-  health_pot: { heal: 40 }, mana_pot: { mana: 30 }, greater_health_pot: { heal: 80 }, greater_mana_pot: { mana: 60 },
-};
-
-const SPELL_NAMES = {
-  magic_bolt: 'Magic Bolt', heal: 'Heal', fireball: 'Fireball',
-  ice_shard: 'Ice Shard', stone_wall: 'Stone Wall', gale: 'Gale',
-  flame_wave: 'Flame Wave', summon_wolf: 'Summon Wolf', teleport: 'Teleport',
-  meteor: 'Meteor', frost_nova: 'Frost Nova', poison_cloud: 'Poison Cloud',
-  slash: 'Slash',
+const ZONE_LEVELS = {
+  meadow: { min: 1, max: 5 },
+  forest: { min: 5, max: 10 },
+  caves: { min: 10, max: 15 },
+  ruins: { min: 15, max: 20 },
+  tower: { min: 20, max: 25 },
 };
 
 class GameScene extends Phaser.Scene {
@@ -81,9 +34,6 @@ class GameScene extends Phaser.Scene {
     this.lastMoveSent = 0;
     this.moveVx = 0;
     this.moveVy = 0;
-    this.chatMessages = [];
-    this.chatInput = '';
-    this.isChatting = false;
     this.chatTexts = [];
     this.network = null;
     const baseStats = {
@@ -100,15 +50,14 @@ class GameScene extends Phaser.Scene {
     this.equipped = {};
     this.selectedSpell = null;
     this.targetMonster = null;
-    this.showingInventory = false;
-    this.inventoryElements = [];
     this.dead = false;
     this.damageTexts = [];
     this.progressMonstersKilled = 0;
     this.statPoints = 0;
+    this.myGold = 0;
     this.allocatedStats = { hp: 0, mp: 0, atk: 0, def: 0 };
     this.zonesVisited = { meadow: true };
-    this.chatPool = [];
+    this.weakened = false;
     this.questShown = false;
     this.levelUpText = null;
     this.levelUpTimer = 0;
@@ -116,10 +65,6 @@ class GameScene extends Phaser.Scene {
     this.walkBob = 0;
     this.walkCycle = 0;
     this.walkFrame = 0;
-    this.displayHp = this.myStats.maxHp;
-    this.displayMp = this.myStats.maxMp;
-    this.displayXp = 0;
-    this.chatBg = null;
     this.chatAnims = [];
     this.targetRing = null;
     this.castEffects = [];
@@ -155,37 +100,38 @@ class GameScene extends Phaser.Scene {
     };
 
     this.network = new Network();
+    this.chatBox = new ChatBox(this, this.network);
+    this.invPanel = new InventoryPanel(this, this.network);
     this.setupNetwork();
     this.network.connect();
     if (this.input.gamepad) this.input.gamepad.start();
 
-    this.showingHelp = false;
-    this.helpElements = [];
+    this.helpPanel = new HelpPanel(this);
 
     this.input.keyboard.on('keydown', (event) => {
       if (event.key === 'h' || event.key === 'H') { this.toggleHelp(); event.stopPropagation(); return; }
 
-      if (this.showingHelp) {
+      if (this.helpPanel.visible) {
         if (event.key === 'h' || event.key === 'H' || event.key === 'Escape') { this.toggleHelp(); event.stopPropagation(); }
         return;
       }
 
-      if (this.isChatting) {
+      if (this.chatBox.isChatting) {
         if (event.key === 'Enter') {
-          if (this.chatInput.length > 0 && this.network) {
-            this.network.emit('chat_message', { text: this.chatInput });
+          if (this.chatBox.input.length > 0 && this.network) {
+            this.network.emit('chat_message', { text: this.chatBox.input });
           }
-          this.isChatting = false;
-          this.hideChatInput();
+          this.chatBox.isChatting = false;
+          this.chatBox.hideInput();
         } else if (event.key === 'Escape') {
-          this.isChatting = false;
-          this.hideChatInput();
+          this.chatBox.isChatting = false;
+          this.chatBox.hideInput();
         } else if (event.key === 'Backspace') {
-          this.chatInput = this.chatInput.slice(0, -1);
-          this.updateChatInput();
-        } else if (event.key.length === 1 && this.chatInput.length < 80) {
-          this.chatInput += event.key;
-          this.updateChatInput();
+          this.chatBox.input = this.chatBox.input.slice(0, -1);
+          this.chatBox.updateInputText();
+        } else if (event.key.length === 1 && this.chatBox.input.length < 80) {
+          this.chatBox.input += event.key;
+          this.chatBox.updateInputText();
         }
         event.stopPropagation();
         return;
@@ -198,9 +144,9 @@ class GameScene extends Phaser.Scene {
       }
 
       if (event.key === 'Enter') {
-        this.isChatting = true;
-        this.chatInput = '';
-        this.showChatInput();
+        this.chatBox.isChatting = true;
+        this.chatBox.input = '';
+        this.chatBox.showInput();
         event.stopPropagation();
         return;
       }
@@ -214,8 +160,13 @@ class GameScene extends Phaser.Scene {
       if (event.key === 'r' || event.key === 'R') { this.respawn(); event.stopPropagation(); return; }
     });
 
+    this.input.on('pointermove', (pointer) => {
+      this.mouseX = pointer.x;
+      this.mouseY = pointer.y;
+    });
+
     this.input.on('pointerdown', (pointer) => {
-      if (this.isChatting || this.showingInventory) return;
+      if (this.chatBox.isChatting || this.invPanel.visible) return;
       if (this.selectedSpell) {
         const fireSpells = ['fireball', 'meteor', 'flame_wave'];
         const iceSpells = ['ice_shard', 'frost_nova'];
@@ -228,8 +179,8 @@ class GameScene extends Phaser.Scene {
           toX: Math.round(pointer.x),
           toY: Math.round(pointer.y),
         });
-        if (this.spellSlots) {
-          for (const s of this.spellSlots) { if (s.key === this.selectedSpell) s.lastCast = Date.now(); }
+        if (this.hud) {
+          for (const s of this.hud.spellSlots) { if (s.key === this.selectedSpell) s.lastCast = Date.now(); }
         }
         if (this.playerSprite) this.playerSprite.setTint(0x88ccff);
         this.time.delayedCall(120, () => { if (this.playerSprite && !this.dead) this.playerSprite.clearTint(); });
@@ -241,6 +192,7 @@ class GameScene extends Phaser.Scene {
 
     this.settingsPanel = new SettingsPanel(this);
     this.particles = new ParticleSystem(this);
+    this.targetPreview = new TargetPreview(this);
     this._createNetStatus();
     window.soundManager.setZone('meadow');
     window.soundManager.startAmbient();
@@ -252,38 +204,48 @@ class GameScene extends Phaser.Scene {
     const isTouch = this.sys.game.device.input.touch;
     if (!isTouch) return;
 
-    const btn = (label, x, y, w, h, cb) => {
-      const bg = this.add.graphics().setDepth(250).setAlpha(0.4);
-      bg.fillStyle(0x333333); bg.fillRoundedRect(x, y, w, h, 6);
-      bg.lineStyle(1, 0x888888); bg.strokeRoundedRect(x, y, w, h, 6);
-      const t = this.add.text(x + w/2, y + h/2, label, { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5).setDepth(251);
-      const zone = this.add.rectangle(x + w/2, y + h/2, w, h, 0xffffff, 0).setInteractive().setDepth(252);
+    const cssW = this.sys.game.scale.width;
+    const resp = Math.max(1, 500 / cssW);
+
+    const btn = (label, x, y, w, h, cb, held) => {
+      const fs = Math.round(14 * resp);
+      const bg = this.add.graphics().setDepth(250).setAlpha(0.5);
+      bg.fillStyle(0x333333); bg.fillRoundedRect(x, y, w, h, Math.round(6 * resp));
+      bg.lineStyle(Math.max(1, resp), 0x888888); bg.strokeRoundedRect(x, y, w, h, Math.round(6 * resp));
+      this.add.text(x + w/2, y + h/2, label, { fontSize: fs + 'px', fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5).setDepth(251);
+      const zone = this.add.rectangle(x + w/2, y + h/2, w, h, 0xffffff, 0).setInteractive({ useHandCursor: true }).setDepth(252);
       zone.on('pointerdown', () => cb(true));
-      zone.on('pointerup', () => cb(false));
-      zone.on('pointerout', () => cb(false));
+      if (held) { zone.on('pointerup', () => cb(false)); zone.on('pointerout', () => cb(false)); }
     };
 
-    btn('\u25B2', 8, 370, 40, 40, (v) => { this.touch.up = v; });
-    btn('\u25BC', 8, 416, 40, 40, (v) => { this.touch.down = v; });
-    btn('\u25C0', 4, 408, 32, 32, (v) => { this.touch.left = v; });
-    btn('\u25B6', 52, 408, 32, 32, (v) => { this.touch.right = v; });
+    const D = Math.round(38 * resp);
+    const g = Math.max(1, Math.round(2 * resp));
+    const row1y = Math.round(480 - 3 * D - 2 * g);
+    const row2y = row1y + D + g;
+    const row3y = row2y + D + g;
+    const padL = Math.round(6 * resp);
+    const off = Math.round(4 * resp);
 
-    btn('I', 588, 370, 44, 40, () => { if (!this.showingInventory) this.toggleInventory(); });
-    btn('H', 588, 416, 44, 40, () => { if (!this.showingHelp) this.toggleHelp(); });
+    btn('\u25B2', padL + off, row1y, D, D, (v) => { this.touch.up = v; }, true);
+    btn('\u25BC', padL + off, row3y, D, D, (v) => { this.touch.down = v; }, true);
+    btn('\u25C0', padL, row2y, D, D, (v) => { this.touch.left = v; }, true);
+    btn('\u25B6', padL + off + D + g, row2y, D, D, (v) => { this.touch.right = v; }, true);
+
+    const sx = 640 - Math.round(88 * resp);
+    const sw = Math.round(82 * resp);
+    const sh = Math.round(34 * resp);
+
+    btn('R', sx, 135, sw, Math.round(24 * resp), () => { if (this.dead) this.respawn(); });
+    btn('I', sx, 165, Math.round(38 * resp), Math.round(28 * resp), () => { if (!this.invPanel.visible) this.toggleInventory(); });
+    btn('H', sx + Math.round(42 * resp), 165, Math.round(38 * resp), Math.round(28 * resp), () => { if (!this.helpPanel.visible) this.toggleHelp(); });
+    btn('CHAT', sx, 197 + Math.round(4 * resp), sw, Math.round(28 * resp), () => { this.chatBox.isChatting = true; this.chatBox.input = ''; this.chatBox.showInput(); });
 
     for (let i = 0; i < 5; i++) {
-      const sx = 64 + i * 56;
-      btn('' + (i+1), sx, 440, 48, 32, () => { if (this.spells[i]) this.selectSpell(i); });
+      btn('' + (i + 1), sx, 245 + i * (sh + g), sw, sh, () => { if (this.spells[i]) this.selectSpell(i); });
     }
 
-    btn('R', 588, 280, 44, 32, () => { if (this.dead) this.respawn(); });
-    btn('CHAT', 525, 280, 58, 32, () => {
-      const msg = window.prompt('Enter chat message:');
-      if (msg && msg.length > 0 && this.network) this.network.emit('chat_message', { text: msg });
-    });
-
     this.touchSprint = false;
-    btn('>>', 540, 370, 44, 32, (v) => { this.touchSprint = v; });
+    btn('>>', sx, 245 + 5 * (sh + g), sw, sh, () => { this.touchSprint = !this.touchSprint; });
   }
 
   setupNetwork() {
@@ -310,6 +272,7 @@ class GameScene extends Phaser.Scene {
       self.createPlayer();
       self.updateEquipmentVisuals();
       self.createHUD();
+      if (data.player.g !== undefined) { self.myGold = data.player.g; self.hud.updateGold(data.player.g); }
       self.createSpellBar();
       if (self.myStats.xp !== undefined) self.updateXPBar(self.myStats.xp);
       if (!tutorialShown) {
@@ -341,6 +304,8 @@ class GameScene extends Phaser.Scene {
         self.myStats.maxMp = me.mm;
         self.myStats.level = me.l;
         self.myStats.xp = me.xp;
+        if (me.g !== undefined) { self.myGold = me.g; if (self.hud) self.hud.updateGold(me.g); }
+        if (me.w !== undefined) { self.weakened = me.w === 1; if (self.hud) self.hud.updateWeakened(self.weakened); }
         self.updateHUD();
         self.updateXPBar(me.xp);
         if (me.pet) {
@@ -379,7 +344,7 @@ class GameScene extends Phaser.Scene {
         self.lastEquippedHash = '';
         self.updateEquipmentVisuals();
         self.zoneLabel = (data.zoneDef?.name || data.zone) + (data.zoneDef?.levels ? ' (' + data.zoneDef.levels + ')' : '');
-        if (self.zoneText) self.zoneText.setText(self.zoneLabel);
+        if (self.hud) self.hud.setZoneLabel(self.zoneLabel);
         if (data.zoneDef?.lore) self.showZoneLore(data.zoneDef.name || data.zone, data.zoneDef.lore, data.zoneDef.color || '#88ccff');
         self.cameras.main.fadeIn(200);
       });
@@ -418,7 +383,7 @@ class GameScene extends Phaser.Scene {
         }});
       }
       self.showDamageNumber(data.x, data.y, '+' + data.xp + ' XP', '#ffcc00');
-      if (self.xpBar) self.updateXPBar(data.xpe || self.myStats.xp);
+      if (self.hud) self.updateXPBar(data.xpe || self.myStats.xp);
       self.progressMonstersKilled = data.mk || 0;
       if (self.progressText) self.updateProgressText();
     });
@@ -524,8 +489,18 @@ class GameScene extends Phaser.Scene {
         self.equipped = data.equipped;
         self.updateEquipmentVisuals();
       }
+      if (data.gold !== undefined) {
+        self.myGold = data.gold;
+        if (self.hud) self.hud.updateGold(data.gold);
+        if (self.invPanel.visible) self.invPanel.refreshShop();
+      }
       self.updateSpellBar();
-      if (self.showingInventory) self.showInventory();
+      if (self.invPanel.visible) self.invPanel.show(self.inventory, self.equipped, self.statPoints);
+    });
+
+    self.network.on('shop_data', (data) => {
+      self.shopData = data;
+      if (self.invPanel.visible) self.invPanel.refreshShop();
     });
 
     self.network.on('stat_update', (data) => {
@@ -651,179 +626,36 @@ class GameScene extends Phaser.Scene {
   }
 
   createHUD() {
-    this.hudContainer = this.add.container(0, 0).setDepth(50);
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.6);
-    g.fillRect(4, 4, 180, 82);
-    this.hudContainer.add(g);
-
-    const clsLabel = this.playerClass.charAt(0).toUpperCase() + this.playerClass.slice(1);
-    this.nameLabel = this.add.text(10, 8, this.playerName + ' (' + clsLabel + ')', { fontSize: '12px', fontFamily: 'monospace', color: '#ffcc00' });
-    this.hudContainer.add(this.nameLabel);
-
-    this.hpBarBg = this.add.graphics();
-    this.hpBarBg.fillStyle(0x333333); this.hpBarBg.fillRect(10, 24, 120, 10);
-    this.hudContainer.add(this.hpBarBg);
-    this.hpBar = this.add.graphics();
-    this.hudContainer.add(this.hpBar);
-
-    this.mpBarBg = this.add.graphics();
-    this.mpBarBg.fillStyle(0x333333); this.mpBarBg.fillRect(10, 38, 120, 10);
-    this.hudContainer.add(this.mpBarBg);
-    this.mpBar = this.add.graphics();
-    this.hudContainer.add(this.mpBar);
-
-    this.xpBarBg = this.add.graphics();
-    this.xpBarBg.fillStyle(0x333333); this.xpBarBg.fillRect(10, 52, 120, 8);
-    this.hudContainer.add(this.xpBarBg);
-    this.xpBar = this.add.graphics();
-    this.hudContainer.add(this.xpBar);
-
-    this.hpText = this.add.text(134, 24, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff' });
-    this.hudContainer.add(this.hpText);
-    this.mpText = this.add.text(134, 38, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff' });
-    this.hudContainer.add(this.mpText);
-
-    this.lvlText = this.add.text(10, 62, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa' });
-    this.hudContainer.add(this.lvlText);
-
-    this.atkDefText = this.add.text(60, 62, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa' });
-    this.hudContainer.add(this.atkDefText);
-    this.statPointsText = this.add.text(10, 72, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 });
-    this.hudContainer.add(this.statPointsText);
-    this.sprintText = this.add.text(140, 72, '', { fontSize: '8px', fontFamily: 'monospace', color: '#88ccff' });
-    this.hudContainer.add(this.sprintText);
-    this.spIndicator = this.add.text(188, 4, '', { fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 3 }).setDepth(55);
-
-    this.zoneText = this.add.text(320, 4, 'Meadow', { fontSize: '12px', fontFamily: 'monospace', color: '#88ccff', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
-    this.spellBarContainer = this.add.container(0, 0).setDepth(50);
-
-    this.targetInfo = this.add.text(320, 460, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', stroke: '#000000', strokeThickness: 2, wordWrap: { width: 300 } }).setOrigin(0.5).setDepth(50);
-
-    this.progressText = this.add.text(320, 16, '', { fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0).setDepth(50);
-    this.updateProgressText();
-
-    this.questText = this.add.text(478, 36, '', { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 1, lineSpacing: 3, wordWrap: { width: 155 } }).setDepth(50).setAlpha(0.85);
-
-    this.zoneLoreText = null;
-    this.zoneLoreTimer = 0;
-
-    this.updateHUD();
+    this.hud = new HUD(this, this.playerClass, this.playerName);
+    if (this.myStats) {
+      this.hud.updateStats({ ...this.myStats, statPoints: this.statPoints });
+      this.hud.updateXPBar(this.myStats.xp || 0, this.myStats.level || 1);
+    }
+    this.hud.setZonesVisited(this.zonesVisited);
+    this.hud.updateProgressText(this.progressMonstersKilled, this.myStats?.level || 1);
+    this.hud.createSpellBar(this.spells);
   }
 
   updateHUD() {
-    if (!this.hpBar) return;
-
-    if (!this.myStats.maxHp || !this.myStats.maxMp) return;
-    this.displayHp += (this.myStats.hp - this.displayHp) * 0.15;
-    this.displayMp += (this.myStats.mp - this.displayMp) * 0.15;
-
-    const hpW = 120 * Math.max(0, this.displayHp / this.myStats.maxHp);
-    this.hpBar.clear();
-    this.hpBar.fillStyle(0xcc3333); this.hpBar.fillRect(10, 24, Math.max(0, hpW), 10);
-    if (hpW > 4) {
-      this.hpBar.fillStyle(0xff5555); this.hpBar.fillRect(10, 24, Math.max(0, hpW - 2), 4);
-    }
-    this.hpText.setText(Math.ceil(this.displayHp) + '/' + this.myStats.maxHp);
-
-    const mpW = 120 * Math.max(0, this.displayMp / this.myStats.maxMp);
-    this.mpBar.clear();
-    this.mpBar.fillStyle(0x3333cc); this.mpBar.fillRect(10, 38, Math.max(0, mpW), 10);
-    if (mpW > 4) {
-      this.mpBar.fillStyle(0x5555ff); this.mpBar.fillRect(10, 38, Math.max(0, mpW - 2), 4);
-    }
-    this.mpText.setText(Math.ceil(this.displayMp) + '/' + this.myStats.maxMp);
-
-    this.lvlText.setText('Lv.' + this.myStats.level);
-    this.atkDefText.setText('ATK:' + this.myStats.atk + ' DEF:' + this.myStats.def);
-    if (this.statPoints > 0) {
-      this.statPointsText.setText('+ ' + this.statPoints + ' SP!');
-      if (this.spIndicator) {
-        this.spIndicator.setText('SP!');
-        this.spIndicator.setAlpha(0.5 + Math.sin(Date.now() * 0.005) * 0.5);
-      }
-    } else {
-      this.statPointsText.setText('');
-      if (this.spIndicator) this.spIndicator.setText('');
-    }
+    if (!this.hud) return;
+    this.hud.updateStats({ ...this.myStats, statPoints: this.statPoints });
   }
 
   updateXPBar(xp) {
-    if (!this.xpBar || !this.myStats) return;
-    this.displayXp += ((xp || 0) - this.displayXp) * 0.1;
-    const needed = Math.floor(100 * Math.pow(1.3, this.myStats.level - 1));
-    const w = 120 * Math.min(1, Math.max(0, this.displayXp / needed));
-    this.xpBar.clear();
-    this.xpBar.fillStyle(0x44cc44); this.xpBar.fillRect(10, 52, Math.max(0, w), 8);
-    if (w > 4) {
-      this.xpBar.fillStyle(0x66ff66); this.xpBar.fillRect(10, 52, Math.max(0, w - 2), 3);
-    }
+    if (this.hud) this.hud.updateXPBar(xp || 0, this.myStats?.level || 1);
   }
 
   createSpellBar() {
-    this.spellBarContainer.removeAll(true);
-    const bg = this.add.graphics();
-    bg.fillStyle(0x000000, 0.7);
-    bg.fillRect(60, 418, 520, 52);
-    this.spellBarContainer.add(bg);
-
-    this.spellSlots = [];
-    for (let i = 0; i < 5; i++) {
-      const slotBg = this.add.graphics();
-      slotBg.fillStyle(0x333333); slotBg.fillRect(70 + i * 102, 424, 96, 40);
-      slotBg.lineStyle(1, 0x666666); slotBg.strokeRect(70 + i * 102, 424, 96, 40);
-      this.spellBarContainer.add(slotBg);
-
-      const keyText = this.add.text(74 + i * 102, 426, (i + 1) + '.', { fontSize: '10px', fontFamily: 'monospace', color: '#888888' });
-      this.spellBarContainer.add(keyText);
-
-      const spellName = this.add.text(90 + i * 102, 426, '', { fontSize: '11px', fontFamily: 'monospace', color: '#ffffff' });
-      this.spellBarContainer.add(spellName);
-
-      const spellCost = this.add.text(90 + i * 102, 439, '', { fontSize: '10px', fontFamily: 'monospace', color: '#8888ff' });
-      this.spellBarContainer.add(spellCost);
-
-      const highlight = this.add.graphics();
-      this.spellBarContainer.add(highlight);
-
-      const cdBar = this.add.graphics().setAlpha(0.6);
-      this.spellBarContainer.add(cdBar);
-
-      this.spellSlots.push({ bg: slotBg, name: spellName, cost: spellCost, highlight, cdBar, key: null, lastCast: 0 });
-    }
-    this.updateSpellBar();
+    if (this.hud) this.hud.createSpellBar(this.spells);
   }
 
   updateSpellBar() {
-    if (!this.spellSlots) return;
-    const costs = { magic_bolt: 5, heal: 15, fireball: 12, ice_shard: 10, stone_wall: 20, gale: 8, flame_wave: 18, summon_wolf: 25, teleport: 20, meteor: 30, frost_nova: 22, poison_cloud: 15, slash: 0 };
-    for (let i = 0; i < 5; i++) {
-      const slot = this.spellSlots[i];
-      const spellKey = this.spells[i];
-      if (spellKey) {
-        slot.name.setText(SPELL_NAMES[spellKey] || spellKey);
-        const cost = costs[spellKey] || 5;
-        const canCast = this.myStats && this.myStats.mp >= cost;
-        slot.cost.setText('MP:' + cost);
-        slot.cost.setColor(canCast ? '#8888ff' : '#ff4444');
-        slot.key = spellKey;
-      } else {
-        slot.name.setText('--');
-        slot.cost.setText('');
-        slot.key = null;
-      }
-      slot.highlight.clear();
-      if (slot.key === this.selectedSpell) {
-        slot.highlight.lineStyle(2, 0xffcc00);
-        slot.highlight.strokeRect(70 + i * 102, 424, 96, 40);
-      }
-    }
+    if (this.hud) this.hud.updateSpellBar(this.spells, this.myStats?.mp || 0);
   }
 
   selectSpell(idx) {
     if (idx >= 0 && idx < this.spells.length) {
-      this.selectedSpell = this.selectedSpell === this.spells[idx] ? null : this.spells[idx];
-      this.updateSpellBar();
+      this.selectedSpell = this.hud ? this.hud.selectSpell(idx, this.spells) : null;
       if (this.selectedSpell) {
         this.addChatMessage('System', 'Selected: ' + (SPELL_NAMES[this.selectedSpell] || this.selectedSpell) + ' - Click to cast!', '#88ccff');
       }
@@ -901,15 +733,34 @@ class GameScene extends Phaser.Scene {
 
     const hpBar = this.add.graphics().setDepth(9);
 
-    const nameText = boss ? this.add.text(m.x, m.y - 20, name, { fontSize: '10px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(9) : null;
+    const zl = ZONE_LEVELS[this.currentZone];
+    const pl = this.myStats.level;
+    let nameColor = '#ffcc00';
+    if (!boss && zl) {
+      if (pl >= zl.max + 3) nameColor = '#88ff88';
+      else if (pl >= zl.min - 2) nameColor = '#ffff88';
+      else nameColor = '#ff6666';
+    }
+    const nameText = this.add.text(m.x, m.y - 20, name, { fontSize: '10px', fontFamily: 'monospace', color: nameColor, stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(9);
 
     const bSize = boss ? 40 : (key === 'treant' || key === 'golem' ? 32 : 24);
-    const clickZone = this.add.rectangle(m.x, m.y, bSize, bSize, 0xffffff, 0).setInteractive().setDepth(8);
+    const clickZone = this.add.rectangle(m.x, m.y, bSize, bSize, 0xffffff, 0).setInteractive({ useHandCursor: true }).setDepth(8);
     const mid = m.id;
     clickZone.on('pointerdown', () => {
       this.targetMonster = mid;
       this.updateSpellBar();
       this.showTargetRing(m.x, m.y);
+      if (!this.selectedSpell && this.spells && this.spells.length > 0) {
+        const autoSpell = this.spells[0];
+        this.network.emit('cast_spell', {
+          spell: autoSpell,
+          toX: Math.round(m.x),
+          toY: Math.round(m.y),
+        });
+        if (this.hud) {
+          for (const s of this.hud.spellSlots) { if (s.key === autoSpell) s.lastCast = Date.now(); }
+        }
+      }
     });
 
     this.monsterSprites[m.id] = { sprite, hpBar, nameText, clickZone, boss, maxHp, _prevHp: hp, _statusGfx: null };
@@ -980,7 +831,7 @@ class GameScene extends Phaser.Scene {
         this.updateMonsterHP(m.id, hp, maxHp);
         if (this.targetMonster === m.id) {
           const pct = Math.floor((hp / maxHp) * 100);
-          this.targetInfo.setText(name + ' - HP: ' + hp + '/' + maxHp + ' (' + pct + '%)');
+          if (this.hud) this.hud.targetInfo.setText(name + ' - HP: ' + hp + '/' + maxHp + ' (' + pct + '%)');
         }
       }
     }
@@ -996,8 +847,10 @@ class GameScene extends Phaser.Scene {
       }
     }
     if (!aliveIds.has(this.targetMonster)) {
-      this.targetMonster = null;
-      this.targetInfo.setText('');
+    this.targetMonster = null;
+    this.mouseX = 0;
+    this.mouseY = 0;
+      if (this.hud) this.hud.targetInfo.setText('');
       if (this.targetRing) { this.targetRing.destroy(); this.targetRing = null; }
     }
   }
@@ -1027,7 +880,7 @@ class GameScene extends Phaser.Scene {
     }
     this.monsterSprites = {};
     this.targetMonster = null;
-    if (this.targetInfo) this.targetInfo.setText('');
+    if (this.hud) this.hud.targetInfo.setText('');
     if (this.targetRing) { this.targetRing.destroy(); this.targetRing = null; }
   }
 
@@ -1127,7 +980,7 @@ class GameScene extends Phaser.Scene {
       this.groundItemSprites[item.id] = { sprite, zone: null, pulse: null, label: null, glow: null };
     }
 
-    const clickZone = this.add.rectangle(item.x, item.y, 22, 22, 0xffffff, 0).setInteractive().setDepth(5);
+    const clickZone = this.add.rectangle(item.x, item.y, 22, 22, 0xffffff, 0).setInteractive({ useHandCursor: true }).setDepth(5);
     const iid = item.id;
     clickZone.on('pointerdown', () => {
       this.network.emit('pickup_item', { itemId: iid });
@@ -1252,247 +1105,15 @@ class GameScene extends Phaser.Scene {
   }
 
   toggleInventory() {
-    this.showingInventory = !this.showingInventory;
-    if (this.showingInventory) { window.soundManager.playInventoryOpen(); this.showInventory(); }
-    else { window.soundManager.playInventoryClose(); this.hideInventory(); }
-  }
-
-  showInventory() {
-    this.hideInventory();
-    const g = this.add.graphics().setDepth(150);
-    g.fillStyle(0x000000, 0.88);
-    g.fillRect(30, 20, 580, 440);
-    g.lineStyle(2, 0xffcc00);
-    g.strokeRect(30, 20, 580, 440);
-    this.inventoryElements.push(g);
-
-    const title = this.add.text(320, 28, 'INVENTORY', { fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(150);
-    this.inventoryElements.push(title);
-
-    const equipTitle = this.add.text(50, 44, 'Equipment:', { fontSize: '11px', fontFamily: 'monospace', color: '#8888ff' }).setDepth(150);
-    this.inventoryElements.push(equipTitle);
-
-    const slots = ['weapon', 'armor', 'accessory'];
-    const slotLabels = ['Weapon:', 'Armor:', 'Acc:'];
-    for (let i = 0; i < 3; i++) {
-      const label = this.add.text(50, 62 + i * 18, slotLabels[i], { fontSize: '10px', fontFamily: 'monospace', color: '#cccccc' }).setDepth(150);
-      this.inventoryElements.push(label);
-      const eq = this.equipped[slots[i]];
-      const eqName = eq ? (ITEM_NAMES[eq] || eq) : '(empty)';
-      const val = eqName.length > 20 ? eqName.slice(0, 20) + '..' : eqName;
-      const eText = this.add.text(120, 62 + i * 18, val, { fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', wordWrap: { width: 200 } }).setDepth(150);
-      this.inventoryElements.push(eText);
-    }
-
-    const spSection = this.statPoints > 0;
-    if (spSection) {
-      const spBg = this.add.graphics().setDepth(150);
-      spBg.fillStyle(0x443300, 0.6); spBg.fillRect(40, 114, 300, 38);
-      spBg.lineStyle(1, 0xffcc00, 0.5); spBg.strokeRect(40, 114, 300, 38);
-      this.inventoryElements.push(spBg);
-
-      const spTitle = this.add.text(50, 116, 'SKILL POINTS: ' + this.statPoints + '  (Press I to close)', { fontSize: '11px', fontFamily: 'monospace', color: '#ffcc00' }).setDepth(150);
-      this.inventoryElements.push(spTitle);
-      const stats = [{k:'hp',l:'+10 HP'},{k:'mp',l:'+8 MP'},{k:'atk',l:'+2 ATK'},{k:'def',l:'+2 DEF'}];
-      for (let si = 0; si < 4; si++) {
-        const sx = 50 + si * 72;
-        const bg = this.add.graphics().setDepth(151);
-        bg.fillStyle(0x665522); bg.fillRoundedRect(sx, 130, 66, 20, 4);
-        bg.lineStyle(1, 0xffcc00, 0.4); bg.strokeRoundedRect(sx, 130, 66, 20, 4);
-        bg.setInteractive(new Phaser.Geom.Rectangle(sx, 130, 66, 20), Phaser.Geom.Rectangle.Contains);
-        const sk = stats[si].k;
-        bg.on('pointerdown', () => { this.network.emit('allocate_stat', { stat: sk }); this.showInventory(); });
-        this.inventoryElements.push(bg);
-        const t = this.add.text(sx + 33, 140, stats[si].l, { fontSize: '11px', fontFamily: 'monospace', color: '#ffcc00' }).setOrigin(0.5).setDepth(152);
-        this.inventoryElements.push(t);
-      }
-    }
-
-    const invTitle = this.add.text(50, 120 + (spSection ? 38 : 0), 'Items (' + Math.min(this.inventory.length, 20) + ')', { fontSize: '11px', fontFamily: 'monospace', color: '#88ff88' }).setDepth(150);
-    this.inventoryElements.push(invTitle);
-
-    const maxShow = Math.min(this.inventory.length, 20);
-    const itemsPerRow = 3;
-    const invOffset = this.statPoints > 0 ? 38 : 0;
-    for (let i = 0; i < maxShow; i++) {
-      const itemKey = this.inventory[i];
-      const col = i % itemsPerRow;
-      const row = Math.floor(i / itemsPerRow);
-      const ix = 50 + col * 175;
-      const iy = 140 + invOffset + row * 32;
-
-      const itemType = ITEM_TYPES[itemKey] || '';
-      const isConsumable = itemType === 'consumable';
-      const isEquippable = !isConsumable && itemType !== 'scroll' && itemType !== '';
-
-      const bg = this.add.graphics().setDepth(150);
-      bg.fillStyle(0x444444); bg.fillRect(ix, iy, 165, 26);
-      bg.lineStyle(1, 0x666666); bg.strokeRect(ix, iy, 165, 26);
-      bg.setInteractive(new Phaser.Geom.Rectangle(ix, iy, 165, 26), Phaser.Geom.Rectangle.Contains);
-      const iidItem = i;
-      const tooltipData = ITEM_DESCS[itemKey] || null;
-      const tooltipStats = ITEM_STATS[itemKey] || null;
-      bg.on('pointerover', () => {
-        if (this._itemTooltip) this._itemTooltip.destroy();
-        const lines = [displayName + ' (' + (RARITY_NAMES[tier] || 'Common') + ')'];
-        if (tooltipData) lines.push(tooltipData);
-        if (tooltipStats) {
-          const parts = [];
-          if (tooltipStats.atk) parts.push('ATK+' + tooltipStats.atk);
-          if (tooltipStats.def) parts.push('DEF+' + tooltipStats.def);
-          if (tooltipStats.hp) parts.push('HP+' + tooltipStats.hp);
-          if (tooltipStats.mp) parts.push('MP+' + tooltipStats.mp);
-          if (tooltipStats.heal) parts.push('Heal ' + tooltipStats.heal);
-          if (tooltipStats.mana) parts.push('Mana ' + tooltipStats.mana);
-          if (parts.length) lines.push(parts.join(' | '));
-        }
-        const yOff = Math.min(iy, 400);
-        this._itemTooltip = this.add.text(ix + 170, yOff, lines.join('\n'), {
-          fontSize: '10px', fontFamily: 'monospace', color: '#ffffff',
-          backgroundColor: '#000000cc', padding: { x: 4, y: 2 },
-        }).setDepth(200);
-      });
-      bg.on('pointerout', () => {
-        if (this._itemTooltip) { this._itemTooltip.destroy(); this._itemTooltip = null; }
-      });
-      this.inventoryElements.push(bg);
-
-
-      const displayName = ITEM_NAMES[itemKey] || itemKey;
-      const shortKey = displayName.length > 16 ? displayName.slice(0, 16) + '..' : displayName;
-      const tier = ITEM_TIERS[itemKey] !== undefined ? ITEM_TIERS[itemKey] : 0;
-      const nameColor = RARITY_COLORS[tier] || '#ffffff';
-      const iText = this.add.text(ix + 4, iy + 1, shortKey, { fontSize: '10px', fontFamily: 'monospace', color: nameColor }).setDepth(150);
-      this.inventoryElements.push(iText);
-
-      if (isConsumable) {
-        const useBg = this.add.graphics().setDepth(151);
-        useBg.fillStyle(0x335533); useBg.fillRect(ix + 2, iy + 14, 50, 10);
-        useBg.setInteractive(new Phaser.Geom.Rectangle(ix + 2, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
-        const iid = i;
-        useBg.on('pointerdown', () => { this.network.emit('use_item', { itemKey: this.inventory[iid] }); this.showInventory(); });
-        this.inventoryElements.push(useBg);
-        const useText = this.add.text(ix + 27, iy + 15, 'Use', { fontSize: '10px', fontFamily: 'monospace', color: '#88ff88' }).setOrigin(0.5).setDepth(152);
-        this.inventoryElements.push(useText);
-      } else if (isEquippable) {
-        const eqBg = this.add.graphics().setDepth(151);
-        eqBg.fillStyle(0x333355); eqBg.fillRect(ix + 56, iy + 14, 50, 10);
-        eqBg.setInteractive(new Phaser.Geom.Rectangle(ix + 56, iy + 14, 50, 10), Phaser.Geom.Rectangle.Contains);
-        const iid2 = i;
-        eqBg.on('pointerdown', () => { this.network.emit('equip_item', { itemKey: this.inventory[iid2] }); this.showInventory(); });
-        this.inventoryElements.push(eqBg);
-        const eqText = this.add.text(ix + 81, iy + 15, 'Equip', { fontSize: '10px', fontFamily: 'monospace', color: '#8888ff' }).setOrigin(0.5).setDepth(152);
-        this.inventoryElements.push(eqText);
-      }
-    }
-  }
-
-  hideInventory() {
-    this.inventoryElements.forEach(e => e.destroy());
-    this.inventoryElements = [];
-  }
-
-  showChatInput() {
-    this.chatInputBg = this.add.graphics().setDepth(200);
-    this.chatInputBg.fillStyle(0x000000, 0.85);
-    this.chatInputBg.fillRect(4, 396, 480, 62);
-    this.chatInputBg.lineStyle(1, 0x88ccff, 0.3);
-    this.chatInputBg.strokeRect(4, 396, 480, 62);
-    this.chatInputBg.fillStyle(0x88ccff, 0.1);
-    this.chatInputBg.fillRect(4, 430, 480, 26);
-    this.chatInputBg.setAlpha(0);
-    this.tweens.add({ targets: this.chatInputBg, alpha: 1, duration: 150 });
-    this.chatInputText = this.add.text(10, 434, '> ' + this.chatInput + '_', { fontSize: '13px', fontFamily: 'monospace', color: '#ffffff' }).setDepth(200);
-    this.chatInputText.setAlpha(0);
-    this.tweens.add({ targets: this.chatInputText, alpha: 1, duration: 150 });
-    const hint = this.add.text(10, 402, 'Enter to send | Esc to cancel', { fontSize: '10px', fontFamily: 'monospace', color: '#666666' }).setDepth(200);
-    this.chatInputHint = hint;
-  }
-
-  hideChatInput() {
-    if (this.chatInputBg) this.chatInputBg.destroy();
-    if (this.chatInputText) this.chatInputText.destroy();
-    if (this.chatInputHint) this.chatInputHint.destroy();
-    this.chatInputBg = null;
-    this.chatInputText = null;
-    this.chatInputHint = null;
-  }
-
-  updateChatInput() {
-    if (this.chatInputText) {
-      this.chatInputText.setText('> ' + this.chatInput + '_');
-    }
+    this.invPanel.toggle(this.inventory, this.equipped, this.statPoints);
   }
 
   addChatMessage(name, text, color) {
-    const maxMsg = 6;
-    const isSys = name === 'System';
-    const displayName = isSys ? '' : (name.length > 12 ? name.slice(0, 12) + '..' : name + ':');
-    const displayText = text.length > 60 ? text.slice(0, 60) + '..' : text;
-    const entry = { text: isSys ? '> ' + displayText : displayName + ' ' + displayText, time: Date.now(), sys: isSys, color: color || (isSys ? '#88ccff' : '#cccccc'), y: 430, alpha: 1 };
-    this.chatMessages.push(entry);
-    while (this.chatMessages.length > maxMsg) this.chatMessages.shift();
-    this.renderChatHistory();
-  }
-
-  renderChatHistory() {
-    const now = Date.now();
-    const chatW = 480;
-    const baseY = 370;
-    const lineH = 15;
-
-    let visCount = 0;
-    for (let i = 0; i < this.chatMessages.length; i++) {
-      const msg = this.chatMessages[i];
-      if (msg.sys) {
-        const elapsed = now - msg.time;
-        if (elapsed > 10000) msg.alpha = Math.max(0, 1 - (elapsed - 10000) / 2000);
-      }
-      if (msg.alpha > 0) visCount++;
-    }
-
-    if (!this.chatBg) {
-      this.chatBg = this.add.graphics().setDepth(149);
-    }
-    this.chatBg.clear();
-    if (visCount > 0) {
-      const bgH = Math.min(visCount, 6) * lineH + 8;
-      this.chatBg.fillStyle(0x000000, 0.45);
-      this.chatBg.fillRect(4, baseY - 4, chatW, bgH);
-      this.chatBg.fillStyle(0xffffff, 0.06);
-      this.chatBg.fillRect(4, baseY - 4, chatW, 1);
-    }
-
-    let idx = 0;
-    for (let i = 0; i < this.chatMessages.length; i++) {
-      const msg = this.chatMessages[i];
-      if (msg.alpha <= 0) continue;
-
-      let t = this.chatPool[idx];
-      if (!t) {
-        t = this.add.text(10, 0, '', { fontSize: '11px', fontFamily: 'monospace', wordWrap: { width: chatW - 12 } }).setDepth(150);
-        this.chatPool.push(t);
-      }
-
-      const targetY = baseY + idx * lineH;
-      if (msg.y === undefined) msg.y = 430;
-      if (msg.y > targetY) msg.y = Math.max(targetY, msg.y - 2.5);
-      else if (msg.y < targetY) msg.y = Math.min(targetY, msg.y + 2.5);
-
-      t.setText(msg.text);
-      t.setPosition(10, msg.y);
-      t.setStyle({ color: msg.color, stroke: '#000000', strokeThickness: 2 });
-      t.setAlpha(msg.alpha);
-      t.setVisible(true);
-      idx++;
-    }
-    for (let i = idx; i < this.chatPool.length; i++) {
-      this.chatPool[i].setVisible(false);
-    }
+    this.chatBox.addMessage(name, text, color);
   }
 
   update(time, delta) {
-    if (!this.playerSprite || this.isChatting || this.showingInventory) return;
+    if (!this.playerSprite || this.chatBox.isChatting || this.invPanel.visible) return;
 
     if (this.dead) return;
 
@@ -1625,9 +1246,9 @@ class GameScene extends Phaser.Scene {
       this.sprintMpTimer = 0;
     }
 
-    if (this.sprintText) {
-      this.sprintText.setText(this.isSprinting ? 'SPRINT' : '');
-      this.sprintText.setAlpha(this.isSprinting ? 0.6 + Math.sin(Date.now() * 0.008) * 0.3 : 0);
+    if (this.hud) {
+      this.hud.sprintText.setText(this.isSprinting ? 'SPRINT' : '');
+      this.hud.sprintText.setAlpha(this.isSprinting ? 0.6 + Math.sin(Date.now() * 0.008) * 0.3 : 0);
     }
 
     if (this.equipmentAura && this.playerSprite) {
@@ -1667,7 +1288,7 @@ class GameScene extends Phaser.Scene {
     if (this.targetMonster && this.monsterSprites[this.targetMonster]) {
       const ms = this.monsterSprites[this.targetMonster];
       if (ms.nameText) {
-        this.targetInfo.setPosition(ms.sprite.x, ms.sprite.y + 24);
+        if (this.hud) this.hud.targetInfo.setPosition(ms.sprite.x, ms.sprite.y + 24);
       }
     }
 
@@ -1682,26 +1303,12 @@ class GameScene extends Phaser.Scene {
       if (dt.alpha <= 0) { dt.alpha = 0; }
     }
 
-    if (this.spellSlots) {
-      const now = Date.now();
-      const cd = 1500;
-      for (let i = 0; i < 5; i++) {
-        const slot = this.spellSlots[i];
-        if (slot.key === this.selectedSpell) {
-          const pulse = 0.6 + Math.sin(this.pulseTime * 0.005) * 0.4;
-          slot.highlight.clear();
-          slot.highlight.lineStyle(2, Phaser.Display.Color.GetColor(Math.floor(255 * pulse), Math.floor(200 * pulse), 0));
-          slot.highlight.strokeRect(70 + i * 102, 424, 96, 40);
-        }
-        const elapsed = now - (slot.lastCast || 0);
-        const pct = Math.min(1, elapsed / cd);
-        slot.cdBar.clear();
-        if (pct < 1) {
-          const bw = 96 * (1 - pct);
-          slot.cdBar.fillStyle(0x000000, 0.5);
-          slot.cdBar.fillRect(70 + i * 102, 424, bw, 40);
-        }
-      }
+    if (this.hud) this.hud.updateSpellCooldowns(delta);
+
+    if (this.targetPreview && this.selectedSpell && this.playerSprite) {
+      this.targetPreview.show(this.playerSprite.x, this.playerSprite.y, this.mouseX, this.mouseY, this.selectedSpell);
+    } else if (this.targetPreview) {
+      this.targetPreview.hide();
     }
 
     if (this.minimap && this.playerSprite) {
@@ -1713,141 +1320,27 @@ class GameScene extends Phaser.Scene {
   }
 
   updateProgressText() {
-    if (!this.progressText) return;
-    this.progressText.setText('Kills: ' + (this.progressMonstersKilled || 0) + ' | Lv.' + (this.myStats?.level || 1));
-    this.updateQuestText();
-  }
-
-  updateQuestText() {
-    if (!this.questText) return;
-    const zones = ['meadow', 'forest', 'caves', 'ruins', 'tower'];
-    const names = ['Meadow', 'Forest', 'Caves', 'Ruins', 'Tower'];
-    const levels = ['1-5', '5-10', '10-15', '15-20', '20+'];
-    const lines = ['--- GOAL ---', ''];
-    for (let i = 0; i < 5; i++) {
-      const visited = this.zonesVisited && this.zonesVisited[zones[i]];
-      const icon = visited ? '[X]' : '[ ]';
-      const color = visited ? '#88ff88' : '#666666';
-      lines.push(icon + ' ' + names[i] + ' (Lv' + levels[i] + ')');
+    if (this.hud) {
+      this.hud.setZonesVisited(this.zonesVisited);
+      this.hud.updateProgressText(this.progressMonstersKilled, this.myStats?.level || 1);
     }
-    lines.push('');
-    lines.push('Defeat the Aether Lord');
-    lines.push('in the Tower!');
-    this.questText.setText(lines.join('\n'));
   }
 
   showZoneLore(zoneName, lore, color) {
-    if (this.zoneLoreText) this.zoneLoreText.destroy();
-    const shortLore = lore.length > 200 ? lore.slice(0, 197) + '...' : lore;
-    this.zoneLoreText = this.add.text(320, 110, zoneName + '\n' + shortLore, {
-      fontSize: '12px',
-      fontFamily: 'monospace',
-      color: color || '#88ccff',
-      stroke: '#000000',
-      strokeThickness: 3,
-      align: 'center',
-      lineSpacing: 5,
-      wordWrap: { width: 360 },
-    }).setOrigin(0.5).setDepth(60).setAlpha(0);
-
-    this.tweens.add({
-      targets: this.zoneLoreText,
-      alpha: 1,
-      duration: 400,
-      yoyo: true,
-      hold: 3000,
-      onComplete: () => { if (this.zoneLoreText) { this.zoneLoreText.destroy(); this.zoneLoreText = null; } }
-    });
+    if (this.hud) this.hud.showZoneLore(zoneName, lore, color);
   }
 
   showTutorial() {
-    this.sendChatMessage('System', 'WASD/Arrows to move | Shift to sprint (costs MP)', '#88ccff');
-    this.sendChatMessage('System', 'Press 1-5 to select a spell, then CLICK anywhere to cast it at that spot', '#88ff88');
-    this.sendChatMessage('System', 'Click monsters to target them | Click items on ground to pick up', '#88ccff');
-    this.sendChatMessage('System', 'Press I for inventory — spend SKILL POINTS there on level up!', '#ffcc00');
-    this.sendChatMessage('System', 'Press H for help | Enter to chat | R to respawn', '#88ccff');
-    this.sendChatMessage('System', 'GOAL: Explore all 5 zones and defeat the Aether Lord in the Tower!', '#ffcc00');
+    this.addChatMessage('System', 'WASD/Arrows to move | Shift to sprint (costs MP)', '#88ccff');
+    this.addChatMessage('System', 'Press 1-5 to select a spell, then CLICK anywhere to cast it at that spot', '#88ff88');
+    this.addChatMessage('System', 'Click monsters to target them | Click items on ground to pick up', '#88ccff');
+    this.addChatMessage('System', 'Press I for inventory — spend SKILL POINTS there on level up!', '#ffcc00');
+    this.addChatMessage('System', 'Press H for help | Enter to chat | R to respawn', '#88ccff');
+    this.addChatMessage('System', 'GOAL: Explore all 5 zones and defeat the Aether Lord in the Tower!', '#ffcc00');
   }
 
   toggleHelp() {
-    if (this.showingHelp) this.hideHelp();
-    else this.showHelp();
-  }
-
-  showHelp() {
-    this.showingHelp = true;
-    const g = this.add.graphics().setDepth(300);
-    g.fillStyle(0x000000, 0.92);
-    g.fillRect(10, 10, 620, 460);
-    g.lineStyle(2, 0xffcc00);
-    g.strokeRect(10, 10, 620, 460);
-    this.helpElements.push(g);
-
-    const closeZone = this.add.rectangle(320, 240, 640, 480, 0xffffff, 0).setInteractive().setDepth(302);
-    closeZone.on('pointerdown', () => this.toggleHelp());
-    this.helpElements.push(closeZone);
-
-    const closeBtn = this.add.text(580, 440, '[ CLOSE ]', { fontSize: '12px', fontFamily: 'monospace', color: '#ffcc00', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5).setDepth(303);
-    const closeBtnZone = this.add.rectangle(580, 440, 100, 24, 0xffffff, 0).setInteractive().setDepth(304);
-    closeBtnZone.on('pointerdown', (e) => { e.stopPropagation(); this.toggleHelp(); });
-    this.helpElements.push(closeBtn);
-    this.helpElements.push(closeBtnZone);
-
-    const lines = [
-      { text: '=== GUIDE BOOK ===', color: '#ffcc00', s: 14 },
-      { text: '', color: '#ffffff', s: 8 },
-      { text: '--- CONTROLS ---', color: '#88ccff', s: 12 },
-      { text: 'WASD / Arrow Keys : Move', color: '#cccccc', s: 10 },
-      { text: 'Shift : Sprint (costs MP)', color: '#cccccc', s: 10 },
-      { text: '1-5 : Select a spell slot', color: '#cccccc', s: 10 },
-      { text: 'Click : Cast selected spell at cursor', color: '#cccccc', s: 10 },
-      { text: 'Click monster : Target it (track HP)', color: '#cccccc', s: 10 },
-      { text: 'I : Inventory (use potions, equip gear)', color: '#cccccc', s: 10 },
-      { text: 'Enter : Chat with other players', color: '#cccccc', s: 10 },
-      { text: 'R : Respawn after death', color: '#cccccc', s: 10 },
-      { text: 'H / Esc : Open/close Guide', color: '#cccccc', s: 10 },
-      { text: 'Gamepad : Left stick move, A/B/X cast, Y inventory', color: '#cccccc', s: 10 },
-      { text: '', color: '#ffffff', s: 6 },
-      { text: '--- HOW TO PLAY ---', color: '#88ccff', s: 12 },
-      { text: '1. Kill monsters to earn XP and loot', color: '#aaaaaa', s: 10 },
-      { text: '2. Level up to grow stronger', color: '#aaaaaa', s: 10 },
-      { text: '3. Equip better gear from loot drops', color: '#aaaaaa', s: 10 },
-      { text: '4. Use potions to restore HP/MP', color: '#aaaaaa', s: 10 },
-      { text: '5. Walk to zone edges to explore new areas', color: '#aaaaaa', s: 10 },
-      { text: '6. Learn new spells from scroll drops', color: '#aaaaaa', s: 10 },
-      { text: '', color: '#ffffff', s: 6 },
-      { text: '--- ZONES (in order) ---', color: '#88ccff', s: 12 },
-      { text: 'Meadow (Lv1-5) -> Forest (Lv5-10)', color: '#88ff88', s: 10 },
-      { text: 'Caves (Lv10-15) -> Ruins (Lv15-20)', color: '#88ff88', s: 10 },
-      { text: 'Tower (Lv20+) - Final boss: Aether Lord', color: '#ffcc00', s: 10 },
-      { text: '', color: '#ffffff', s: 6 },
-      { text: '--- ITEM RARITY ---', color: '#88ccff', s: 12 },
-      { text: 'Common (white) | Uncommon (green)', color: '#cccccc', s: 10 },
-      { text: 'Rare (blue) | Epic (purple)', color: '#cccccc', s: 10 },
-      { text: 'Legendary (orange) - best gear!', color: '#ff8800', s: 10 },
-      { text: '', color: '#ffffff', s: 6 },
-      { text: '--- TIPS ---', color: '#88ccff', s: 12 },
-      { text: 'HP/MP regenerate over time', color: '#88ff88', s: 10 },
-      { text: 'Edge tiles glow blue - walk there to move on', color: '#88ccff', s: 10 },
-      { text: 'Blue arrows on edges show exit direction', color: '#88ccff', s: 10 },
-      { text: 'You can only equip 1 weapon, 1 armor, 1 ring', color: '#aaaaaa', s: 10 },
-      { text: 'Scrolls teach you permanent new spells', color: '#aaaaaa', s: 10 },
-    ];
-
-    let y = 22;
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      const t = this.add.text(320, y, l.text, { fontSize: l.s + 'px', fontFamily: 'monospace', color: l.color }).setOrigin(0.5, 0).setDepth(301);
-      this.helpElements.push(t);
-      y += (l.text === '' ? 4 : l.s > 12 ? 24 : l.s > 10 ? 18 : 14);
-      if (y > 445) break;
-    }
-  }
-
-  hideHelp() {
-    this.showingHelp = false;
-    this.helpElements.forEach(e => e.destroy());
-    this.helpElements = [];
+    this.helpPanel.toggle();
   }
 
   _createNetStatus() {
@@ -1863,12 +1356,13 @@ class GameScene extends Phaser.Scene {
     this.netStatusText.setColor(connected ? '#44ff44' : '#ff4444');
   }
 
-  sendChatMessage(name, text, color) {
-    this.addChatMessage(name, text, color);
-  }
-
   shutdown() {
     window.soundManager.stopAmbient();
+    if (this.hud) this.hud.destroy();
+    if (this.chatBox) this.chatBox.destroy();
+    if (this.invPanel) this.invPanel.destroy();
+    if (this.helpPanel) this.helpPanel.destroy();
+    if (this.targetPreview) this.targetPreview.destroy();
     if (this.particles) this.particles.destroy();
     if (this.minimap) this.minimap.destroy();
     if (this.equipmentOverlay) this.equipmentOverlay.destroy();

@@ -149,16 +149,32 @@ function xpToLevel(xp) {
   return { level, xp, needed };
 }
 
+const CLASS_PASSIVES = {
+  mage: { name: 'Arcane Surge', desc: 'Mana pool +25%' },
+  sorcerer: { name: 'Destruction', desc: 'ATK +15%, Mana +10%' },
+  druid: { name: 'Wild Heart', desc: 'HP +20%' },
+  warrior: { name: 'Iron Will', desc: 'DEF +20%' },
+  archer: { name: 'Deadeye', desc: 'ATK +15%' },
+  summoner: { name: 'Soul Well', desc: 'Mana +15%' },
+};
+
 function getStats(cls, level) {
   const base = STAT_BASE[cls];
   const per = STAT_PER_LEVEL[cls];
-  return {
+  let s = {
     maxHp: Math.floor(base.hp + per.hp * (level - 1)),
     maxMp: Math.floor(base.mp + per.mp * (level - 1)),
     atk: Math.floor(base.atk + per.atk * (level - 1)),
     def: Math.floor(base.def + per.def * (level - 1)),
     spd: base.spd,
   };
+  if (cls === 'mage') s.maxMp = Math.floor(s.maxMp * 1.25);
+  if (cls === 'sorcerer') { s.atk = Math.floor(s.atk * 1.15); s.maxMp = Math.floor(s.maxMp * 1.1); }
+  if (cls === 'druid') s.maxHp = Math.floor(s.maxHp * 1.2);
+  if (cls === 'warrior') s.def = Math.floor(s.def * 1.2);
+  if (cls === 'archer') s.atk = Math.floor(s.atk * 1.15);
+  if (cls === 'summoner') s.maxMp = Math.floor(s.maxMp * 1.15);
+  return s;
 }
 
 const ITEMS = {
@@ -238,6 +254,34 @@ function applyItemStats(stats, itemKey) {
   return s;
 }
 
+const VENDOR_ITEMS = {
+  meadow: { items: [{ key: 'health_pot', price: 20 }, { key: 'mana_pot', price: 15 }], sellMult: 0.5 },
+  forest: { items: [{ key: 'health_pot', price: 20 }, { key: 'mana_pot', price: 15 }, { key: 'greater_health_pot', price: 45 }, { key: 'greater_mana_pot', price: 35 }, { key: 'forest_staff', price: 80 }, { key: 'leaf_cloak', price: 60 }, { key: 'vine_ring', price: 50 }], sellMult: 0.5 },
+  caves: { items: [{ key: 'greater_health_pot', price: 45 }, { key: 'greater_mana_pot', price: 35 }, { key: 'crystal_staff', price: 200 }, { key: 'crystal_robe', price: 150 }, { key: 'crystal_ring', price: 120 }], sellMult: 0.5 },
+  ruins: { items: [{ key: 'greater_health_pot', price: 45 }, { key: 'greater_mana_pot', price: 35 }, { key: 'ancient_staff', price: 400 }, { key: 'ancient_robe', price: 350 }, { key: 'soul_ring', price: 300 }], sellMult: 0.5 },
+  tower: { items: [{ key: 'greater_health_pot', price: 45 }, { key: 'greater_mana_pot', price: 35 }, { key: 'legendary_staff', price: 800 }, { key: 'legendary_robe', price: 700 }, { key: 'boss_ring', price: 600 }], sellMult: 0.5 },
+};
+
+function getGoldDrop(zone, isBoss) {
+  const r = { meadow: [2, 5], forest: [5, 10], caves: [10, 20], ruins: [15, 30], tower: [20, 50] };
+  const [min, max] = r[zone] || [1, 3];
+  const base = min + (Math.random() * (max - min) | 0);
+  return isBoss ? base * 3 + 10 : base;
+}
+
+function getItemSellPrice(itemKey) {
+  const item = ITEMS[itemKey];
+  if (!item) return 0;
+  if (item.type === 'consumable') {
+    if (item.stats.heal >= 80) return 22;
+    if (item.stats.mana >= 60) return 17;
+    if (item.stats.heal) return 10;
+    if (item.stats.mana) return 7;
+  }
+  const tierPrices = [0, 15, 40, 100, 200, 400];
+  return tierPrices[item.tier] || 0;
+}
+
 function createMonsterInstance(zone, monsterKey, id) {
   const def = MONSTERS[monsterKey];
   if (!def) return null;
@@ -268,8 +312,10 @@ module.exports = {
   TILE_SIZE, MAP_COLS, MAP_ROWS,
   SPELLS, CLASS_STARTING_SPELLS, MONSTERS, ITEMS,
   ZONE_DEFS, LOOT_TABLES, SPELL_SCROLLS,
+  VENDOR_ITEMS,
   getZoneMap, isWalkable, getEdgeZone, getSpawnTile,
   getStats, xpToLevel, rollLoot, applyItemStats,
   getItemEffects, createMonsterInstance, ZONE_MAPS,
-  STAT_BASE, STAT_PER_LEVEL,
+  STAT_BASE, STAT_PER_LEVEL, CLASS_PASSIVES,
+  getGoldDrop, getItemSellPrice,
 };

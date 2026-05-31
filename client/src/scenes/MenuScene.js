@@ -120,7 +120,7 @@ class MenuScene extends Phaser.Scene {
       fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(6).setAlpha(0);
 
-    const zone = this.add.rectangle(x, y, w, h, 0xffffff, 0).setInteractive({ useHandCursor: true }).setDepth(7).setAlpha(0);
+    const zone = this.add.rectangle(x, y, w, h, 0xffffff, 0).setInteractive({ useHandCursor: true }).setDepth(7);
 
     zone.on('pointerover', () => {
       window.soundManager.playMenuHover();
